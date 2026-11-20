@@ -13,8 +13,8 @@ FlyRank Internship · Backend Track · Week 2 · Assignment A1 (BE-01)
 You need Python 3.10 or newer.
 
 ```bash
-git clone https://github.com/<your-username>/task-api.git
-cd task-api
+git clone https://github.com/azizulabedinazmi/FlyRank_BE-01.git
+cd FlyRank_BE-01
 python -m venv .venv
 ```
 
@@ -104,7 +104,7 @@ process, which is the problem Week 3 solves.
 ## Project structure
 
 ```
-task-api/
+FlyRank_BE-01/
 ├── main.py            # the whole API
 ├── requirements.txt   # fastapi + uvicorn
 ├── docs/              # README screenshots
