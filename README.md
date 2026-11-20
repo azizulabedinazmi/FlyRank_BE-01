@@ -92,7 +92,7 @@ content-type: application/json
 
 Open http://localhost:8000/docs. Every endpoint is listed, and **Try it out** sends real requests.
 
-![Swagger UI showing all endpoints](docs/swagger-endpoints.jpg)
+![Swagger UI showing all endpoints](docs/swagger-endpoints.png)
 
 ## The mortality experiment
 
