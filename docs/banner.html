@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>Task API banner</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { width: 1280px; height: 640px; overflow: hidden; }
+  body {
+    font-family: "Segoe UI", -apple-system, Roboto, Helvetica, Arial, sans-serif;
+    color: #E8F3EE;
+    background:
+      radial-gradient(circle at 85% 15%, rgba(46, 204, 128, 0.18), transparent 45%),
+      radial-gradient(circle at 10% 95%, rgba(26, 122, 74, 0.35), transparent 50%),
+      #051F21;
+    position: relative;
+  }
+  .grid {
+    position: absolute; inset: 0;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.035) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.035) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+  .wrap { position: relative; display: flex; height: 100%; padding: 64px 72px; gap: 56px; }
+  .left { flex: 1.15; display: flex; flex-direction: column; }
+  .eyebrow { font-size: 17px; letter-spacing: 3px; text-transform: uppercase; color: #6FDCA4; font-weight: 600; }
+  h1 { font-size: 92px; line-height: 1; font-weight: 800; margin-top: 18px; color: #FFFFFF; letter-spacing: -2px; }
+  .sub { font-size: 26px; line-height: 1.4; margin-top: 22px; color: #B9D3C8; max-width: 560px; }
+  .chips { display: flex; gap: 12px; margin-top: 30px; }
+  .chip { font-family: Consolas, "SF Mono", monospace; font-weight: 700; font-size: 18px; padding: 8px 16px; border-radius: 8px; color: #fff; }
+  .get { background: #2F80ED; } .post { background: #1FA971; } .put { background: #E59A1A; } .del { background: #E5484D; }
+  .footer { margin-top: auto; display: flex; align-items: center; gap: 16px; }
+  .name { font-size: 22px; font-weight: 600; color: #fff; }
+  .dot { width: 5px; height: 5px; border-radius: 50%; background: #4C7A6B; }
+  .badge {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: #fff; border-radius: 999px; padding: 8px 18px 8px 14px;
+  }
+  .badge b { color: #051F21; font-size: 17px; }
+  .badge .sep { width: 1px; height: 18px; background: #E4EAED; }
+  .badge code { font-family: Consolas, monospace; font-size: 15px; color: rgba(5,31,33,0.55); }
+  .right { flex: 1; display: flex; flex-direction: column; justify-content: center; gap: 18px; }
+  .card {
+    background: rgba(2, 14, 15, 0.75); border: 1px solid rgba(111, 220, 164, 0.22);
+    border-radius: 16px; padding: 22px 26px; font-family: Consolas, "SF Mono", monospace; font-size: 18px; line-height: 1.6;
+    box-shadow: 0 20px 50px rgba(0,0,0,0.35);
+  }
+  .bar { display: flex; gap: 8px; margin-bottom: 14px; }
+  .bar i { width: 12px; height: 12px; border-radius: 50%; background: #2B4A44; display: block; }
+  .m { color: #6FDCA4; font-weight: 700; } .p { color: #fff; }
+  .s201 { color: #6FDCA4; } .s404 { color: #FF8A8E; } .s204 { color: #8FB8FF; }
+  .k { color: #8FB8FF; } .v { color: #F2C66D; } .mut { color: #6E8F85; }
+</style>
+</head>
+<body>
+<div class="grid"></div>
+<div class="wrap">
+  <div class="left">
+    <div class="eyebrow">FlyRank AI Internship · Backend · BE-01</div>
+    <h1>Task API</h1>
+    <p class="sub">A hand-built CRUD REST API in Python &amp; FastAPI: strict validation, honest status codes, Swagger UI.</p>
+    <div class="chips">
+      <span class="chip get">GET</span><span class="chip post">POST</span><span class="chip put">PUT</span><span class="chip del">DELETE</span>
+    </div>
+    <div class="footer">
+      <span class="name">Azizul Abedin Azmi</span>
+      <span class="dot"></span>
+      <span class="badge">
+        <svg width="13" height="18" viewBox="26 18 44 60" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M28.2354 74.2202V67.9039C29.6419 68.4369 31.3724 68.7055 33.4311 68.7055C35.3235 68.7055 36.8153 68.2396 37.8979 67.3079C38.9805 66.3762 39.9566 64.8695 40.8218 62.792L42.6887 58.3139L29.8976 29.2879C35.0038 29.2879 39.6028 32.3307 41.5294 36.9893L47.0746 50.3985L56.0126 28.6038C57.9221 23.9452 62.5168 20.894 67.6187 20.894L50.0795 63.5936C48.4556 67.5933 46.5205 70.5102 44.2743 72.3484C42.0281 74.1867 39.1169 75.1058 35.5451 75.1058C32.6212 75.1058 30.1875 74.812 28.2354 74.2244V74.2202Z" fill="#1A7A4A"/></svg>
+        <b>FlyRank verified</b><span class="sep"></span><code>FR-D1-A84A9-AB526</code>
+      </span>
+    </div>
+  </div>
+  <div class="right">
+    <div class="card">
+      <div class="bar"><i></i><i></i><i></i></div>
+      <div><span class="m">POST</span> <span class="p">/tasks</span></div>
+      <div class="mut">{ "title": "Buy milk" }</div>
+      <div class="s201">→ 201 Created</div>
+      <div>{ <span class="k">"id"</span>: <span class="v">4</span>, <span class="k">"done"</span>: <span class="v">false</span> }</div>
+    </div>
+    <div class="card">
+      <div><span class="m">GET</span> <span class="p">/tasks/99</span></div>
+      <div class="s404">→ 404 Not Found</div>
+      <div>{ <span class="k">"error"</span>: <span class="v">"Task 99 not found"</span> }</div>
+      <div style="margin-top:10px"><span class="m">DELETE</span> <span class="p">/tasks/4</span> <span class="s204">→ 204</span></div>
+    </div>
+  </div>
+</div>
+</body>
+</html>

@@ -1,5 +1,7 @@
 <a name="readme-top"></a>
 
+![Task API: a hand-built CRUD REST API in Python and FastAPI, by Azizul Abedin Azmi, FlyRank verified](docs/banner.png)
+
 [![LinkedIn](https://custom-icon-badges.demolab.com/badge/LinkedIn-0A66C2?logo=linkedin-white&logoColor=fff)](https://www.linkedin.com/in/azizulabedin/)
 [![GitHub](https://img.shields.io/badge/GitHub-181717?logo=github&logoColor=white)](https://github.com/azizulabedinazmi)
 [![Portfolio](https://img.shields.io/badge/Portfolio-00C7B7?logo=netlify&logoColor=white)](https://azizulabedinazmi.netlify.app/)
@@ -256,7 +258,7 @@ I could only spot those failures because I had built and tested the API myself f
 |---|---|
 | `main.py` | The whole API, built by hand in Stages 0–6. |
 | `requirements.txt` | Pinned `fastapi` and `uvicorn` versions. |
-| `docs/` | README screenshots. |
+| `docs/` | README screenshots, plus the repo banner (`banner.png`, made from `banner.html`). |
 | `ai-version/` | Stage 7: the AI-generated code (v1, v2), both prompts, the test script and the results. |
 | `LICENSE` | MIT License. |
 | `README.md` | This file. |
