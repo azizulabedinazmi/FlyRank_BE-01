@@ -1,7 +1,25 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
+from pydantic import BaseModel
 
 app = FastAPI(title="Task API", version="1.0")
+
+
+class TaskCreate(BaseModel):
+    title: str | None = None
+
+
+# FastAPI normally answers bad input with 422; this assignment wants 400 + {"error": ...}.
+@app.exception_handler(RequestValidationError)
+def validation_error(request: Request, exc: RequestValidationError):
+    first = exc.errors()[0]
+    field = ".".join(str(p) for p in first["loc"] if isinstance(p, str) and p != "body") or "body"
+    return JSONResponse(status_code=400, content={"error": f"Invalid {field}: {first['msg']}"})
+
+
+def bad_request(message: str):
+    return JSONResponse(status_code=400, content={"error": message})
 
 # In-memory "database": lives only while the server runs.
 tasks = [
@@ -42,4 +60,14 @@ def get_task(task_id: int):
     task = find_task(task_id)
     if task is None:
         return not_found(task_id)
+    return task
+
+
+@app.post("/tasks", status_code=201)
+def create_task(body: TaskCreate):
+    if body.title is None or body.title.strip() == "":
+        return bad_request("title is required and cannot be empty")
+    next_id = max((t["id"] for t in tasks), default=0) + 1
+    task = {"id": next_id, "title": body.title.strip(), "done": False}
+    tasks.append(task)
     return task
