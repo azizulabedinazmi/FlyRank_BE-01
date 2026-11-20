@@ -1,14 +1,65 @@
-# Task API
+<a name="readme-top"></a>
 
-A small to-do list API built with **Python + FastAPI**. It supports the four CRUD operations
-(create, read, update, delete) on tasks and has interactive documentation through Swagger UI.
+[![LinkedIn](https://custom-icon-badges.demolab.com/badge/LinkedIn-0A66C2?logo=linkedin-white&logoColor=fff)](https://www.linkedin.com/in/azizulabedin/)
+[![GitHub](https://img.shields.io/badge/GitHub-181717?logo=github&logoColor=white)](https://github.com/azizulabedinazmi)
+[![Portfolio](https://img.shields.io/badge/Portfolio-00C7B7?logo=netlify&logoColor=white)](https://azizulabedinazmi.netlify.app/)
+[![FlyRank verified](https://img.shields.io/badge/FlyRank_verified-FR--D1--A84A9--AB526-1A7A4A)](https://internship.flyrank.ai/verify?id=FR-D1-A84A9-AB526&first_name=Azizul)
+[![Python](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
 
-Tasks are kept **in memory** (a Python list). There is no database, so all changes are lost
-when the server stops.
+<div align="center">
+  <h3>Task API</h3>
+  <p>
+    A small to-do list REST API with full CRUD, built by hand with Python and FastAPI.
+    Data lives in memory, every error is JSON, and Swagger UI documents every endpoint.
+    <br /><br />
+    FlyRank AI Internship · Backend AI Engineering · Week 2 · Assignment BE-01
+  </p>
+</div>
 
-FlyRank Internship · Backend Track · Week 2 · Assignment A1 (BE-01)
+<details>
+  <summary>Table of Contents</summary>
+  <ol>
+    <li><a href="#about-the-project">About The Project</a></li>
+    <li><a href="#built-with">Built With</a></li>
+    <li><a href="#getting-started">Getting Started</a></li>
+    <li><a href="#endpoints">Endpoints</a></li>
+    <li><a href="#curl-example">Example: curl -i</a></li>
+    <li><a href="#swagger-ui">Swagger UI</a></li>
+    <li><a href="#mortality">The Mortality Experiment</a></li>
+    <li><a href="#ai-vs-me">AI vs Me (Stage 7)</a></li>
+    <li><a href="#repository-structure">Repository Structure</a></li>
+    <li><a href="#about-me">About Me</a></li>
+    <li><a href="#about-flyrank">About FlyRank</a></li>
+    <li><a href="#license">License</a></li>
+    <li><a href="#contact">Contact</a></li>
+  </ol>
+</details>
 
-## Run it
+## 📋 About The Project <a name="about-the-project"></a>
+
+This API manages a to-do list: you can create tasks, read them, update them and delete them. Those are the four
+CRUD operations behind almost every backend.
+
+- **Five task endpoints** plus `GET /` (API info) and `GET /health` (liveness check).
+- **Correct status codes:** 200 for reads and updates, 201 for create, 204 for delete, 400 for invalid input, 404 for an unknown id.
+- **Strict validation.** The server never trusts the client: empty titles, `{}` updates and `"yes"` instead of `true` are all rejected.
+- **In-memory storage on purpose.** There's no database yet, so data disappears on restart. That lesson leads into Week 3.
+- **Built in 7 stages**, each with its own commit, so `git log` tells the story.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🛠️ Built With <a name="built-with"></a>
+
+- [Python 3.10+](https://www.python.org/)
+- [FastAPI](https://fastapi.tiangolo.com/) for routing, validation and the OpenAPI schema
+- [Uvicorn](https://www.uvicorn.org/) as the server
+- [Pydantic](https://docs.pydantic.dev/) strict types (`StrictStr`, `StrictBool`)
+- Swagger UI (built into FastAPI) at `/docs`
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🎯 Getting Started <a name="getting-started"></a>
 
 You need Python 3.10 or newer.
 
@@ -32,7 +83,9 @@ uvicorn main:app --reload
 
 The API runs at http://localhost:8000. Swagger UI is at http://localhost:8000/docs.
 
-## Endpoints
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🔌 Endpoints <a name="endpoints"></a>
 
 | Method | Path | What it does | Success | Errors |
 |--------|------|--------------|---------|--------|
@@ -61,7 +114,9 @@ A task looks like this:
 FastAPI normally answers invalid input with **422**. This project replaces that with **400 + `{"error": ...}`** so it
 matches the assignment.
 
-## Example: `curl -i`
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 💻 Example: `curl -i` <a name="curl-example"></a>
 
 ```text
 $ curl -i -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d '{"title":"Buy milk"}'
@@ -88,20 +143,26 @@ content-type: application/json
 > On Windows PowerShell, use `curl.exe` instead of `curl`. Pass the JSON body from a file
 > (`--data-binary "@body.json"`) because PowerShell mangles the quotes in `-d '{"title":"Buy milk"}'`.
 
-## Swagger UI
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 📖 Swagger UI <a name="swagger-ui"></a>
 
 Open http://localhost:8000/docs. Every endpoint is listed, and **Try it out** sends real requests.
 
 ![Swagger UI showing all endpoints](docs/swagger-endpoints.png)
 
-## The mortality experiment
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🧪 The Mortality Experiment <a name="mortality"></a>
 
 I created a task (`id 4`, "Buy milk"), restarted the server, and called `GET /tasks` again. Only the 3 starting
 tasks came back. The task list is a Python variable in the server's memory, so it is rebuilt from the source code
 every time the program starts, and anything added while it ran is gone. A database keeps data outside the
 process, which is the problem Week 3 solves.
 
-## AI vs me (Stage 7)
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🤖 AI vs Me (Stage 7) <a name="ai-vs-me"></a>
 
 I gave an AI assistant (Claude) a prompt asking for the same API, ran its code, and fired the same checkpoint
 requests at it as at mine. The AI's code is kept apart in [`ai-version/`](ai-version/), and my own `main.py` was
@@ -187,13 +248,75 @@ Pydantic models, so it also had to describe the request bodies in the OpenAPI do
 **Lesson:** the AI didn't guess wrong at random. Every failure in v1 traced back to something my prompt didn't say.
 I could only spot those failures because I had built and tested the API myself first.
 
-## Project structure
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-```
-FlyRank_BE-01/
-├── main.py            # the whole API (hand-built, Stages 0–6)
-├── requirements.txt   # fastapi + uvicorn
-├── docs/              # README screenshots
-├── ai-version/        # Stage 7: AI-generated code, prompts and test results
-└── README.md
-```
+## 🗂️ Repository Structure <a name="repository-structure"></a>
+
+| Path | Purpose |
+|---|---|
+| `main.py` | The whole API, built by hand in Stages 0–6. |
+| `requirements.txt` | Pinned `fastapi` and `uvicorn` versions. |
+| `docs/` | README screenshots. |
+| `ai-version/` | Stage 7: the AI-generated code (v1, v2), both prompts, the test script and the results. |
+| `LICENSE` | MIT License. |
+| `README.md` | This file. |
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 👋 About Me <a name="about-me"></a>
+
+I'm **Azizul Abedin Azmi**, a Computer Science and Engineering graduate from East West University (2026) and a
+**Machine Learning Intern at FlyRank AI** (remote).
+
+My main work is **self-supervised computer vision**: image classifiers built on self-supervised Vision Transformers
+(SimCLR variants, BYOL, ViT) that need fewer labeled examples, for areas like medical imaging and agriculture.
+This repo is part of the backend side of my internship: learning to serve and expose the systems I build.
+
+**Peer-reviewed publications**
+
+- *Detection of Cleft and Non-Cleft Lip Features with a Multi-Task Image Processing Network.* ICCIIR 2025, Springer LNNS vol. 1593. [DOI](https://link.springer.com/chapter/10.1007/978-3-032-02790-0_9)
+- *PotatoCare: A Deep Learning-Powered Framework for Automated Detection and Classification of Potato Disease.* ICDSIS 2025, IEEE. [DOI](https://ieeexplore.ieee.org/document/11070388/)
+- *A Vision Transformer Adaptation of SimCLRv2 for Self-Supervised Galaxy Detection.* SPICSCON 2025, IEEE. [DOI](https://ieeexplore.ieee.org/document/11504180/)
+
+**Selected projects**
+
+- [E-waste Detection System](https://github.com/azizulabedinazmi/E-waste-Detection-System): real-time YOLOv8 detection in a Gradio app
+- [Crop Classification System](https://github.com/azizulabedinazmi/Crop-Classification-GradioApp): Vision Transformer classifier as a Gradio app
+- [Image Caption Generator](https://github.com/azizulabedinazmi/Image-Caption-Generator-ICG): InceptionV3 + Transformer trained on COCO, served with Streamlit
+- [RMP Classification Models](https://huggingface.co/spaces/azizulabedinazmi/RMP-Classification-System): self-supervised ViT models for rare medicinal plants
+
+More about me: [Portfolio](https://azizulabedinazmi.netlify.app/) ·
+[ORCID](https://orcid.org/0009-0003-5269-6900) ·
+[ResearchGate](https://www.researchgate.net/profile/Azizul-Abedin-Azmi)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🚀 About FlyRank <a name="about-flyrank"></a>
+
+[FlyRank AI](https://www.flyrank.ai/) is an AI search growth platform. It helps brands rank on Google and become
+the trusted answer across AI engines.
+
+The [FlyRank AI Internship](https://internship.flyrank.ai/) is a free, remote, self-paced program built around real
+work, expert feedback and verifiable credentials. It has six tracks: General AI Fluency, Machine Learning,
+AI Marketing, Front-end AI Engineering, Backend AI Engineering, and UI/UX Design. This project is assignment
+**BE-01** of the Backend AI Engineering track.
+
+My internship credential can be checked here:
+
+[![FlyRank verified](https://img.shields.io/badge/FlyRank_verified-FR--D1--A84A9--AB526-1A7A4A?style=for-the-badge)](https://internship.flyrank.ai/verify?id=FR-D1-A84A9-AB526&first_name=Azizul)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 📜 License <a name="license"></a>
+
+Distributed under the MIT License. See `LICENSE` for more information.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 📧 Contact <a name="contact"></a>
+
+Azizul Abedin Azmi · [LinkedIn](https://www.linkedin.com/in/azizulabedin/) · [Portfolio](https://azizulabedinazmi.netlify.app/)
+
+Project Link: [https://github.com/azizulabedinazmi/FlyRank_BE-01](https://github.com/azizulabedinazmi/FlyRank_BE-01)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
