@@ -1,20 +1,25 @@
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from pydantic import BaseModel
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel, StrictBool, StrictStr
 
 app = FastAPI(title="Task API", version="1.0")
 
 
 class TaskCreate(BaseModel):
-    title: str | None = None
+    title: StrictStr | None = None
+
+
+class TaskUpdate(BaseModel):
+    title: StrictStr | None = None
+    done: StrictBool | None = None
 
 
 # FastAPI normally answers bad input with 422; this assignment wants 400 + {"error": ...}.
 @app.exception_handler(RequestValidationError)
 def validation_error(request: Request, exc: RequestValidationError):
     first = exc.errors()[0]
-    field = ".".join(str(p) for p in first["loc"] if isinstance(p, str) and p != "body") or "body"
+    field = ".".join(str(p) for p in first["loc"] if isinstance(p, str) and p not in ("body", "path", "query")) or "body"
     return JSONResponse(status_code=400, content={"error": f"Invalid {field}: {first['msg']}"})
 
 
@@ -71,3 +76,28 @@ def create_task(body: TaskCreate):
     task = {"id": next_id, "title": body.title.strip(), "done": False}
     tasks.append(task)
     return task
+
+
+@app.put("/tasks/{task_id}")
+def update_task(task_id: int, body: TaskUpdate):
+    task = find_task(task_id)
+    if task is None:
+        return not_found(task_id)
+    if body.title is None and body.done is None:
+        return bad_request("send at least one of: title, done")
+    if body.title is not None and body.title.strip() == "":
+        return bad_request("title cannot be empty")
+    if body.title is not None:
+        task["title"] = body.title.strip()
+    if body.done is not None:
+        task["done"] = body.done
+    return task
+
+
+@app.delete("/tasks/{task_id}", status_code=204)
+def delete_task(task_id: int):
+    task = find_task(task_id)
+    if task is None:
+        return not_found(task_id)
+    tasks.remove(task)
+    return Response(status_code=204)
