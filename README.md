@@ -31,6 +31,7 @@
     <li><a href="#database">The Database (Week 3)</a></li>
     <li><a href="#sql-by-hand">SQL by Hand in DB Browser</a></li>
     <li><a href="#persistence">Persistence and "the API didn't change"</a></li>
+    <li><a href="#ai-vs-me-db">AI vs Me (Week 3, Stage 6)</a></li>
     <li><a href="#mortality">The Mortality Experiment (Week 2)</a></li>
     <li><a href="#ai-vs-me">AI vs Me (Week 2, Stage 7)</a></li>
     <li><a href="#repository-structure">Repository Structure</a></li>
@@ -320,6 +321,99 @@ really is just an implementation detail behind the API.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
+## 🤖 AI vs Me (Week 3, Stage 6) <a name="ai-vs-me-db"></a>
+
+After migrating by hand, I gave an AI assistant (Claude, in a fresh context that saw only my prompt and my Week 2
+in-memory `main.py`) the same migration. Its code is kept apart in [`ai-version-db/`](ai-version-db/), and my
+`main.py` was not changed.
+
+- `ai-version-db/PROMPT-v1.md` and `ai-version-db/v1/main.py`: my first prompt and the code it produced
+- `ai-version-db/PROMPT-v2.md` and `ai-version-db/v2/main.py`: the improved prompt (rematch)
+- `ai-version-db/db_checkpoint.py`: 15 checks. It starts the server itself so it can restart it, covers the Stage 0–3
+  checkpoints, edits `tasks.db` directly, and runs the full Week 2 suite
+  (`python ai-version-db/db_checkpoint.py ai-version-db/v1`)
+- `ai-version-db/results-*.md`: the full output for each version
+
+### My prompt (v1)
+
+```text
+Here is my to-do list API in Python/FastAPI (main.py attached). Right now it keeps the tasks in a
+Python list in memory, so everything is lost when the server restarts.
+
+Move the storage to a SQLite database so the data survives restarts.
+
+- Use Python's built-in sqlite3 module. The database file is tasks.db.
+- One table called tasks with columns id (integer primary key), title (text) and done (boolean).
+- When the app starts, create the table if it doesn't exist, and insert the 3 example tasks
+  only if the table is empty (so they don't get added again on every restart).
+- Every endpoint must keep behaving exactly the same as now: same URLs, same request bodies,
+  same responses, same status codes (200/201/204, 400 for invalid input, 404 for an unknown id).
+- Use parameterized queries (?) everywhere, never build SQL strings from user input.
+- Keep everything in one file, main.py.
+```
+
+### Results
+
+v1 started on the first try, created `tasks.db`, seeded once, and survived restarts.
+
+| Check | Mine | AI v1 | AI v2 |
+|---|---|---|---|
+| DB created, table created, seed runs only once | pass | pass | pass |
+| Data survives restarts (create, update) | pass | pass | pass |
+| Direct SQL edit shows up in the API instantly | pass | pass | pass |
+| `done` stored as 0/1, returned as `true`/`false` | pass | pass | pass |
+| SQL inside a title stored as plain text | pass | pass | pass |
+| Week 2 suite (19 requests) | 19/19 | 19/19 | 19/19 |
+| **Deleted id never reused** | pass | **fail**: deleted task 4, the next new task got id 4 again ❌ | pass |
+| `done = 'no'` written by hand in DB Browser | **rejected** by `CHECK` | **accepted**, and the API shows it as `true` ❌ | rejected |
+| **Score** | **15/15** | **14/15** | **15/15** |
+
+### 1. What the AI did better
+
+- **A cleaner connection helper.** v1's `get_db()` is a `@contextmanager` that commits on success, rolls back on an
+  error and **always closes** the connection, all in one `with get_db() as conn:`. I needed
+  `with closing(get_db()) as conn, conn:` to get the same result, because `sqlite3`'s own `with conn:` only commits and
+  never closes. That's a trap I can now explain: an unclosed connection kept `tasks.db` locked on Windows while I was
+  writing my test script.
+- **The database path doesn't depend on where you start the server.** It used `Path(__file__).with_name("tasks.db")`,
+  the same idea as mine, without being asked.
+- **It kept everything else identical**, including my error messages, the 400 handler and the OpenAPI cleanup, so the
+  Week 2 suite passed untouched.
+
+### 2. What it got wrong or quietly ignored
+
+- **Ids get reused.** It used `INTEGER PRIMARY KEY` without `AUTOINCREMENT`, so SQLite hands out `max(id) + 1`. Delete the
+  newest task and the next one gets its id. That's exactly the bug the Week 2 AI review taught me to avoid, and the
+  migration quietly brought it back.
+- **`done BOOLEAN` with no constraint.** SQLite has no real boolean type, so the column accepts anything. I wrote
+  `done = 'no'` straight into the table and the API returned `"done": true`, because `bool('no')` is `True`. My
+  `CHECK (done IN (0, 1))` makes the database itself refuse it.
+- **It returns a dict it built in Python, not the row.** After `INSERT`/`UPDATE` it echoes its own values instead of
+  reading the row back. That's fine today, but defaults or triggers in the database would never show up in the response.
+- **There's no way to point it at a test database**, so testing it means deleting the real `tasks.db`.
+
+### 3. What my prompt forgot to specify (the AI decided for me)
+
+- **The schema details:** "id (integer primary key)" and "done (boolean)" were all I wrote, and the AI took me literally.
+  I never said ids must not be reused, or that `done` must be limited to 0/1.
+- **Where `tasks.db` lives** and how to override it for tests.
+- **Transactions and closing connections:** I didn't ask. It happened to handle both well in v1.
+- **Whether to read rows back after a write.**
+
+### Rematch (v2)
+
+[`PROMPT-v2.md`](ai-version-db/PROMPT-v2.md) spelled out the exact `CREATE TABLE` (with `AUTOINCREMENT`,
+`CHECK (done IN (0, 1))` and `NOT NULL`), "next to main.py, or `TASKS_DB` if set", one transaction for the seed, closing
+connections, and reading rows back after writes. The new code passed **15/15**. It went further than mine on transactions:
+it opens connections in autocommit mode and wraps the seed in an explicit `BEGIN IMMEDIATE`, which locks the database
+before the `COUNT`. That way two servers starting at the same moment can't both see an empty table and seed twice.
+
+**Lesson:** the AI's first try ran, persisted, and passed every API test, and it still had two schema bugs that only
+show up when you delete the newest task or open the database by hand. I only knew to test for them because I had made
+the same decisions myself first.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
 ## 🧪 The Mortality Experiment (Week 2) <a name="mortality"></a>
 
 I created a task (`id 4`, "Buy milk"), restarted the server, and called `GET /tasks` again. Only the 3 starting
@@ -427,7 +521,8 @@ I could only spot those failures because I had built and tested the API myself f
 | `tasks.db` | The SQLite database. Created on first run, not committed (see `.gitignore`). |
 | `requirements.txt` | Pinned `fastapi` and `uvicorn` versions (`sqlite3` is built into Python). |
 | `docs/` | README screenshots (Swagger, DB Browser), the Stage 4 SQL log, and the repo banner (`banner.png`, made from `banner.html`). |
-| `ai-version/` | Stage 7: the AI-generated code (v1, v2), both prompts, the test script and the results. |
+| `ai-version/` | Week 2, Stage 7: the AI-generated in-memory API (v1, v2), both prompts, the test script and the results. |
+| `ai-version-db/` | Week 3, Stage 6: the AI-generated SQLite migration (v1, v2), both prompts, the starting in-memory file, the DB checkpoint script and the results. |
 | `LICENSE` | MIT License. |
 | `README.md` | This file. |
 
