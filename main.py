@@ -2,6 +2,7 @@ import os
 import sqlite3
 from contextlib import asynccontextmanager, closing
 from pathlib import Path
+from typing import Literal
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -40,8 +41,11 @@ def init_db():
             )
             """
         )
+        # Index on done so GET /tasks?done=... and /stats don't scan every row.
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_done ON tasks (done)")
         (count,) = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()
         if count == 0:
+            # Same transaction as the COUNT: all three seed rows land, or none do.
             conn.executemany("INSERT INTO tasks (title, done) VALUES (?, ?)", SEED_TASKS)
     conn.close()
 
@@ -59,6 +63,7 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+
 class Task(BaseModel):
     id: int
     title: str
@@ -72,6 +77,12 @@ class TaskCreate(BaseModel):
 class TaskUpdate(BaseModel):
     title: StrictStr | None = Field(default=None, examples=["Buy oat milk"])
     done: StrictBool | None = Field(default=None, examples=[True])
+
+
+class Stats(BaseModel):
+    total: int
+    done: int
+    open: int
 
 
 class Error(BaseModel):
@@ -110,7 +121,7 @@ def validation_error(request: Request, exc: RequestValidationError):
 
 @app.get("/", summary="Describe the API")
 def root():
-    return {"name": "Task API", "version": "1.0", "endpoints": ["/tasks"]}
+    return {"name": "Task API", "version": "2.0", "endpoints": ["/tasks", "/stats"]}
 
 
 @app.get("/health", summary="Check the server is alive")
@@ -118,11 +129,40 @@ def health():
     return {"status": "ok"}
 
 
-@app.get("/tasks", summary="List all tasks", response_model=list[Task])
-def list_tasks():
+# Column names can't be "?" parameters, so ORDER BY only ever uses one of these fixed strings.
+ORDER_BY = {"id": "id", "title": "title COLLATE NOCASE, id"}
+
+
+def escape_like(text: str) -> str:
+    """Make % and _ in the user's search match literally instead of acting as wildcards."""
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
+@app.get("/tasks", summary="List all tasks", response_model=list[Task], responses=ERR_400)
+def list_tasks(search: str | None = None, done: bool | None = None, sort: Literal["id", "title"] = "id"):
+    """Optional filters: `?search=milk` (title contains, case-insensitive), `?done=true|false`,
+    `?sort=title`. With no query string this returns every task, ordered by id, as before."""
+    sql = "SELECT id, title, done FROM tasks"
+    where, params = [], []
+    if search is not None:
+        where.append("title LIKE ? ESCAPE '\\'")
+        params.append(f"%{escape_like(search)}%")
+    if done is not None:
+        where.append("done = ?")
+        params.append(int(done))
+    if where:
+        sql += " WHERE " + " AND ".join(where)
+    sql += " ORDER BY " + ORDER_BY[sort]
     with closing(get_db()) as conn:
-        rows = conn.execute("SELECT id, title, done FROM tasks ORDER BY id").fetchall()
+        rows = conn.execute(sql, params).fetchall()
     return [row_to_task(r) for r in rows]
+
+
+@app.get("/stats", summary="Count tasks in SQL", response_model=Stats)
+def stats():
+    with closing(get_db()) as conn:
+        total, done = conn.execute("SELECT COUNT(*), COALESCE(SUM(done), 0) FROM tasks").fetchone()
+    return {"total": total, "done": done, "open": total - done}
 
 
 @app.get("/tasks/{task_id}", summary="Get one task by id", response_model=Task, responses=ERR_404)
