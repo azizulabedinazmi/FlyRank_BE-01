@@ -154,9 +154,9 @@ def create_task(body: TaskCreate):
     """Send `{"title": "..."}`. The server assigns the id and sets `done` to false."""
     if body.title is None or body.title.strip() == "":
         return bad_request("title is required and cannot be empty")
-    next_id = max((t["id"] for t in tasks), default=0) + 1
-    task = {"id": next_id, "title": body.title.strip(), "done": False}
-    tasks.append(task)
+    with closing(get_db()) as conn, conn:  # inner "conn" commits on success
+        cur = conn.execute("INSERT INTO tasks (title, done) VALUES (?, ?)", (body.title.strip(), 0))
+        task = db_get_task(conn, cur.lastrowid)  # the id comes from the database
     return task
 
 
