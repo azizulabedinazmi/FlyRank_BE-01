@@ -256,9 +256,10 @@ in the code, never from the request.
 
 ![tasks.db open in DB Browser for SQLite, Browse Data tab, showing 5 tasks](docs/db-browser-browse-data.png)
 
-The **Execute SQL** tab with one of the Stage 4 queries:
+The **Execute SQL** tab running `SELECT * FROM tasks WHERE done = 1;` (taken later, after the table had been emptied and
+re-seeded, so only the re-seeded "Learn HTTP methods", now id 7, is done):
 
-![DB Browser for SQLite Execute SQL tab with SELECT * FROM tasks WHERE done = 1](docs/db-browser-execute-sql.png)
+![DB Browser for SQLite Execute SQL tab: SELECT * FROM tasks WHERE done = 1 returned 1 row](docs/db-browser-execute-sql.png)
 
 ### The Stage 4 queries
 
