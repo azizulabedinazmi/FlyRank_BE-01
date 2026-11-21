@@ -1,15 +1,65 @@
+import os
+import sqlite3
+from contextlib import asynccontextmanager
+from pathlib import Path
+
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field, StrictBool, StrictStr
 
+# ---------------------------------------------------------------------------
+# Storage layer: SQLite
+# ---------------------------------------------------------------------------
+# tasks.db sits next to this file. TASKS_DB lets tests point at a throwaway file.
+DB_PATH = Path(os.environ.get("TASKS_DB", Path(__file__).parent / "tasks.db"))
+
+SEED_TASKS = [
+    ("Learn HTTP methods", 1),
+    ("Build a CRUD API", 0),
+    ("Push to GitHub", 0),
+]
+
+
+def get_db() -> sqlite3.Connection:
+    """Open a connection. Connecting to a file that doesn't exist creates it."""
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row  # rows behave like dicts: row["title"]
+    return conn
+
+
+def init_db():
+    """Create the tasks table if it's missing, then seed it only if it's empty."""
+    with get_db() as conn:
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS tasks (
+                id    INTEGER PRIMARY KEY AUTOINCREMENT,
+                title TEXT    NOT NULL,
+                done  INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0, 1))
+            )
+            """
+        )
+        (count,) = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()
+        if count == 0:
+            conn.executemany("INSERT INTO tasks (title, done) VALUES (?, ?)", SEED_TASKS)
+    conn.close()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
 app = FastAPI(
     title="Task API",
-    version="1.0",
-    description="A tiny to-do list API with full CRUD. Data is kept in memory only.",
+    version="2.0",
+    description="A tiny to-do list API with full CRUD, stored in a SQLite database (tasks.db).",
+    lifespan=lifespan,
 )
 
-# In-memory "database": lives only while the server runs.
+# In-memory list: still serving the endpoints until Stage 1 moves reads to SQLite.
 tasks = [
     {"id": 1, "title": "Learn HTTP methods", "done": True},
     {"id": 2, "title": "Build a CRUD API", "done": False},
