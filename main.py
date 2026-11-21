@@ -59,14 +59,6 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
-# In-memory list: still serving the endpoints until Stage 1 moves reads to SQLite.
-tasks = [
-    {"id": 1, "title": "Learn HTTP methods", "done": True},
-    {"id": 2, "title": "Build a CRUD API", "done": False},
-    {"id": 3, "title": "Push to GitHub", "done": False},
-]
-
-
 class Task(BaseModel):
     id: int
     title: str
@@ -106,13 +98,6 @@ def row_to_task(row: sqlite3.Row) -> dict:
 def db_get_task(conn: sqlite3.Connection, task_id: int):
     row = conn.execute("SELECT id, title, done FROM tasks WHERE id = ?", (task_id,)).fetchone()
     return row_to_task(row) if row else None
-
-
-def find_task(task_id: int):
-    for task in tasks:
-        if task["id"] == task_id:
-            return task
-    return None
 
 
 # FastAPI normally answers bad input with 422; this assignment wants 400 + {"error": ...}.
@@ -164,26 +149,27 @@ def create_task(body: TaskCreate):
          responses={**ERR_400, **ERR_404})
 def update_task(task_id: int, body: TaskUpdate):
     """Send `title`, `done`, or both. At least one is required."""
-    task = find_task(task_id)
-    if task is None:
-        return not_found(task_id)
-    if body.title is None and body.done is None:
-        return bad_request("send at least one of: title, done")
-    if body.title is not None and body.title.strip() == "":
-        return bad_request("title cannot be empty")
-    if body.title is not None:
-        task["title"] = body.title.strip()
-    if body.done is not None:
-        task["done"] = body.done
-    return task
+    with closing(get_db()) as conn, conn:
+        task = db_get_task(conn, task_id)
+        if task is None:
+            return not_found(task_id)
+        if body.title is None and body.done is None:
+            return bad_request("send at least one of: title, done")
+        if body.title is not None and body.title.strip() == "":
+            return bad_request("title cannot be empty")
+        # Keep the current value for any field the client didn't send.
+        title = body.title.strip() if body.title is not None else task["title"]
+        done = body.done if body.done is not None else task["done"]
+        conn.execute("UPDATE tasks SET title = ?, done = ? WHERE id = ?", (title, int(done), task_id))
+        return db_get_task(conn, task_id)
 
 
 @app.delete("/tasks/{task_id}", summary="Delete a task", status_code=204, responses=ERR_404)
 def delete_task(task_id: int):
-    task = find_task(task_id)
-    if task is None:
+    with closing(get_db()) as conn, conn:
+        cur = conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
+    if cur.rowcount == 0:  # no row had that id
         return not_found(task_id)
-    tasks.remove(task)
     return Response(status_code=204)
 
 
