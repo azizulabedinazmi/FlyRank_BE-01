@@ -1,6 +1,6 @@
 import os
 import sqlite3
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, closing
 from pathlib import Path
 
 from fastapi import FastAPI, Request
@@ -98,6 +98,16 @@ def not_found(task_id: int):
     return JSONResponse(status_code=404, content={"error": f"Task {task_id} not found"})
 
 
+def row_to_task(row: sqlite3.Row) -> dict:
+    # SQLite stores booleans as 0/1; the API keeps sending real true/false.
+    return {"id": row["id"], "title": row["title"], "done": bool(row["done"])}
+
+
+def db_get_task(conn: sqlite3.Connection, task_id: int):
+    row = conn.execute("SELECT id, title, done FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    return row_to_task(row) if row else None
+
+
 def find_task(task_id: int):
     for task in tasks:
         if task["id"] == task_id:
@@ -125,12 +135,15 @@ def health():
 
 @app.get("/tasks", summary="List all tasks", response_model=list[Task])
 def list_tasks():
-    return tasks
+    with closing(get_db()) as conn:
+        rows = conn.execute("SELECT id, title, done FROM tasks ORDER BY id").fetchall()
+    return [row_to_task(r) for r in rows]
 
 
 @app.get("/tasks/{task_id}", summary="Get one task by id", response_model=Task, responses=ERR_404)
 def get_task(task_id: int):
-    task = find_task(task_id)
+    with closing(get_db()) as conn:
+        task = db_get_task(conn, task_id)
     if task is None:
         return not_found(task_id)
     return task
