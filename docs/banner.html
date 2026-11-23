@@ -29,6 +29,10 @@
   .sub { font-size: 26px; line-height: 1.4; margin-top: 22px; color: #B9D3C8; max-width: 560px; }
   .chips { display: flex; gap: 12px; margin-top: 30px; }
   .chip { font-family: Consolas, "SF Mono", monospace; font-weight: 700; font-size: 18px; padding: 8px 16px; border-radius: 8px; color: #fff; }
+  .db { background: transparent; border: 2px solid #6FDCA4; color: #6FDCA4; padding: 6px 14px; }
+  .tbl { border-collapse: collapse; margin-top: 10px; font-size: 16px; }
+  .tbl th { color: #6E8F85; font-weight: 600; text-align: left; padding: 2px 18px 4px 0; border-bottom: 1px solid rgba(111,220,164,0.22); }
+  .tbl td { padding: 3px 18px 0 0; color: #E8F3EE; }
   .get { background: #2F80ED; } .post { background: #1FA971; } .put { background: #E59A1A; } .del { background: #E5484D; }
   .footer { margin-top: auto; display: flex; align-items: center; gap: 16px; }
   .name { font-size: 22px; font-weight: 600; color: #fff; }
@@ -59,9 +63,9 @@
   <div class="left">
     <div class="eyebrow">FlyRank AI Internship · Backend · BE-01 + BE-02</div>
     <h1>Task API</h1>
-    <p class="sub">A hand-built CRUD REST API in Python &amp; FastAPI, now persisted in SQLite: same endpoints, data that survives a restart.</p>
+    <p class="sub">A hand-built CRUD REST API in Python &amp; FastAPI, now backed by SQLite. Same endpoints, and the data survives a restart.</p>
     <div class="chips">
-      <span class="chip get">GET</span><span class="chip post">POST</span><span class="chip put">PUT</span><span class="chip del">DELETE</span>
+      <span class="chip get">GET</span><span class="chip post">POST</span><span class="chip put">PUT</span><span class="chip del">DELETE</span><span class="chip db">SQLite</span>
     </div>
     <div class="footer">
       <span class="name">Azizul Abedin Azmi</span>
@@ -75,16 +79,22 @@
   <div class="right">
     <div class="card">
       <div class="bar"><i></i><i></i><i></i></div>
-      <div><span class="m">POST</span> <span class="p">/tasks</span></div>
-      <div class="mut">{ "title": "Buy milk" }</div>
+      <div><span class="m">POST</span> <span class="p">/tasks</span> <span class="mut">{ "title": "Buy milk" }</span></div>
       <div class="s201">→ 201 Created</div>
-      <div>{ <span class="k">"id"</span>: <span class="v">4</span>, <span class="k">"done"</span>: <span class="v">false</span> }</div>
+      <div class="mut" style="margin-top:8px"># restart the server…</div>
+      <div><span class="m">GET</span> <span class="p">/tasks/4</span> <span class="s201">→ 200</span></div>
+      <div>{ <span class="k">"title"</span>: <span class="v">"Buy milk"</span>, <span class="k">"done"</span>: <span class="v">false</span> }</div>
     </div>
     <div class="card">
-      <div><span class="m">GET</span> <span class="p">/tasks/99</span></div>
-      <div class="s404">→ 404 Not Found</div>
-      <div>{ <span class="k">"error"</span>: <span class="v">"Task 99 not found"</span> }</div>
-      <div style="margin-top:10px"><span class="m">DELETE</span> <span class="p">/tasks/4</span> <span class="s204">→ 204</span></div>
+      <div><span class="m">sqlite&gt;</span> <span class="p">SELECT * FROM tasks;</span></div>
+      <table class="tbl">
+        <tr><th>id</th><th>title</th><th>done</th></tr>
+        <tr><td class="v">1</td><td>Learn HTTP methods</td><td class="v">1</td></tr>
+        <tr><td class="v">2</td><td>Build a CRUD API</td><td class="v">0</td></tr>
+        <tr><td class="v">3</td><td>Push to GitHub</td><td class="v">0</td></tr>
+        <tr><td class="v">4</td><td>Buy milk</td><td class="v">0</td></tr>
+      </table>
+      <div class="mut" style="margin-top:8px">tasks.db · data survives a restart</div>
     </div>
   </div>
 </div>
