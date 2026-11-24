@@ -79,6 +79,28 @@ class PostgresTaskRepository:
         with self.pool.connection() as conn:
             return conn.execute("SELECT id, title, done FROM tasks WHERE id = %s", (task_id,)).fetchone()
 
+    def create(self, title: str) -> Task:
+        with self.pool.connection() as conn:
+            # RETURNING hands back the row Postgres actually stored, id included.
+            return conn.execute(
+                "INSERT INTO tasks (title, done) VALUES (%s, %s) RETURNING id, title, done", (title, False)
+            ).fetchone()
+
+    def update(self, task_id: int, title: str, done: bool) -> Task | None:
+        if not fits_bigint(task_id):
+            return None
+        with self.pool.connection() as conn:
+            return conn.execute(
+                "UPDATE tasks SET title = %s, done = %s WHERE id = %s RETURNING id, title, done",
+                (title, done, task_id),
+            ).fetchone()  # None when no row had that id
+
+    def delete(self, task_id: int) -> bool:
+        if not fits_bigint(task_id):
+            return False
+        with self.pool.connection() as conn:
+            return conn.execute("DELETE FROM tasks WHERE id = %s", (task_id,)).rowcount > 0
+
     def ping(self) -> bool:
         try:
             with self.pool.connection(timeout=2) as conn:
