@@ -61,11 +61,11 @@
 <div class="grid"></div>
 <div class="wrap">
   <div class="left">
-    <div class="eyebrow">FlyRank AI Internship · Backend · BE-01 + BE-02</div>
+    <div class="eyebrow">FlyRank AI Internship · BE-01 · BE-02 · A3</div>
     <h1>Task API</h1>
-    <p class="sub">A hand-built CRUD REST API in Python &amp; FastAPI, now backed by SQLite. Same endpoints, and the data survives a restart.</p>
+    <p class="sub">A hand-built CRUD REST API in Python &amp; FastAPI, now on PostgreSQL in Docker. One command starts the stack, and the data survives a restart.</p>
     <div class="chips">
-      <span class="chip get">GET</span><span class="chip post">POST</span><span class="chip put">PUT</span><span class="chip del">DELETE</span><span class="chip db">SQLite</span>
+      <span class="chip get">GET</span><span class="chip post">POST</span><span class="chip put">PUT</span><span class="chip del">DELETE</span><span class="chip db">Postgres</span><span class="chip db">Docker</span>
     </div>
     <div class="footer">
       <span class="name">Azizul Abedin Azmi</span>
@@ -79,22 +79,22 @@
   <div class="right">
     <div class="card">
       <div class="bar"><i></i><i></i><i></i></div>
-      <div><span class="m">POST</span> <span class="p">/tasks</span> <span class="mut">{ "title": "Buy milk" }</span></div>
-      <div class="s201">→ 201 Created</div>
-      <div class="mut" style="margin-top:8px"># restart the server…</div>
-      <div><span class="m">GET</span> <span class="p">/tasks/4</span> <span class="s201">→ 200</span></div>
-      <div>{ <span class="k">"title"</span>: <span class="v">"Buy milk"</span>, <span class="k">"done"</span>: <span class="v">false</span> }</div>
+      <div><span class="m">$</span> <span class="p">docker compose up</span></div>
+      <div><span class="s204">api</span> <span class="mut">·</span> <span class="s204">db</span> <span class="s201">(healthy)</span> <span class="mut">·</span> <span class="s204">redis</span> <span class="s201">(healthy)</span></div>
+      <div><span class="m">POST</span> <span class="p">/tasks</span> <span class="mut">{ "title": "Survive…" }</span> <span class="s201">→ 201</span></div>
+      <div class="mut" style="margin-top:8px"># docker compose down &amp;&amp; up</div>
+      <div><span class="m">GET</span> <span class="p">/tasks/5</span> <span class="s201">→ 200</span> { <span class="k">"done"</span>: <span class="v">false</span> }</div>
     </div>
     <div class="card">
-      <div><span class="m">sqlite&gt;</span> <span class="p">SELECT * FROM tasks;</span></div>
+      <div><span class="m">tasks=#</span> <span class="p">SELECT * FROM tasks;</span></div>
       <table class="tbl">
         <tr><th>id</th><th>title</th><th>done</th></tr>
-        <tr><td class="v">1</td><td>Learn HTTP methods</td><td class="v">1</td></tr>
-        <tr><td class="v">2</td><td>Build a CRUD API</td><td class="v">0</td></tr>
-        <tr><td class="v">3</td><td>Push to GitHub</td><td class="v">0</td></tr>
-        <tr><td class="v">4</td><td>Buy milk</td><td class="v">0</td></tr>
+        <tr><td class="v">2</td><td>Build a CRUD API</td><td class="v">f</td></tr>
+        <tr><td class="v">3</td><td>Push to GitHub</td><td class="v">f</td></tr>
+        <tr><td class="v">4</td><td>Buy milk</td><td class="v">f</td></tr>
+        <tr><td class="v">5</td><td>Survive the restart</td><td class="v">f</td></tr>
       </table>
-      <div class="mut" style="margin-top:8px">tasks.db · data survives a restart</div>
+      <div class="mut" style="margin-top:8px">postgres:17 · volume survives down + up</div>
     </div>
   </div>
 </div>

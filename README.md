@@ -1,6 +1,6 @@
 <a name="readme-top"></a>
 
-![Task API: a hand-built CRUD REST API in Python and FastAPI, backed by SQLite, by Azizul Abedin Azmi, FlyRank verified](docs/banner.png)
+![Task API: a hand-built CRUD REST API in Python and FastAPI, running on PostgreSQL in Docker, by Azizul Abedin Azmi, FlyRank verified](docs/banner.png)
 
 [![LinkedIn](https://custom-icon-badges.demolab.com/badge/LinkedIn-0A66C2?logo=linkedin-white&logoColor=fff)](https://www.linkedin.com/in/azizulabedin/)
 [![GitHub](https://img.shields.io/badge/GitHub-181717?logo=github&logoColor=white)](https://github.com/azizulabedinazmi)
