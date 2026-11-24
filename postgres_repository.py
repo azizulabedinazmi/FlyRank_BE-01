@@ -7,9 +7,25 @@ from pathlib import Path
 from psycopg.rows import dict_row
 from psycopg_pool import ConnectionPool
 
-from repository import SEED_TASKS
+from repository import SEED_TASKS, Sort, Task
 
 SCHEMA = Path(__file__).parent / "db" / "schema.sql"
+
+# Column names can't be placeholders, so ORDER BY only ever uses one of these fixed strings.
+ORDER_BY = {"id": "id", "title": "lower(title), id"}
+
+BIGINT_MIN, BIGINT_MAX = -(2**63), 2**63 - 1
+
+
+def fits_bigint(task_id: int) -> bool:
+    """Python ints are unbounded; Postgres BIGINT isn't. An id outside the range can't exist, so it's a 404,
+    not a 500 from the driver."""
+    return BIGINT_MIN <= task_id <= BIGINT_MAX
+
+
+def escape_like(text: str) -> str:
+    """Make % and _ in the user's search match literally instead of acting as wildcards."""
+    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 # Any fixed number works; it just has to be the same for every app instance (see init()).
 INIT_LOCK_ID = 4_2026_03
@@ -34,6 +50,34 @@ class PostgresTaskRepository:
             if count == 0:
                 with conn.cursor() as cur:
                     cur.executemany("INSERT INTO tasks (title, done) VALUES (%s, %s)", SEED_TASKS)
+
+    def list(self, search: str | None = None, done: bool | None = None, sort: Sort = "id") -> list[Task]:
+        sql = "SELECT id, title, done FROM tasks"
+        where, params = [], []
+        if search is not None:
+            where.append("title ILIKE %s ESCAPE '\\'")  # ILIKE = case-insensitive, like SQLite's LIKE
+            params.append(f"%{escape_like(search)}%")
+        if done is not None:
+            where.append("done = %s")
+            params.append(done)
+        if where:
+            sql += " WHERE " + " AND ".join(where)
+        sql += " ORDER BY " + ORDER_BY[sort]  # fixed strings only, never from the request
+        with self.pool.connection() as conn:
+            return conn.execute(sql, params).fetchall()
+
+    def stats(self) -> dict:
+        with self.pool.connection() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE done) AS done FROM tasks"
+            ).fetchone()
+        return {"total": row["total"], "done": row["done"], "open": row["total"] - row["done"]}
+
+    def get(self, task_id: int) -> Task | None:
+        if not fits_bigint(task_id):
+            return None
+        with self.pool.connection() as conn:
+            return conn.execute("SELECT id, title, done FROM tasks WHERE id = %s", (task_id,)).fetchone()
 
     def ping(self) -> bool:
         try:
