@@ -6,6 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field, StrictBool, StrictStr
 
+from cache import redis_status
 from storage import make_repository
 
 # ---------------------------------------------------------------------------
@@ -18,6 +19,7 @@ repo = make_repository()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     repo.init()
+    print(f"Redis PING: {redis_status()}", flush=True)
     yield
     repo.close()
 
@@ -80,9 +82,13 @@ def root():
     return {"name": "Task API", "version": "3.0", "endpoints": ["/tasks", "/stats"]}
 
 
-@app.get("/health", summary="Check the server is alive")
+@app.get("/health", summary="Check the server and its database are alive",
+         responses={503: {"description": "Database unreachable"}})
 def health():
-    return {"status": "ok"}
+    """Runs `SELECT 1` against the database. 503 if it fails, so a load balancer stops sending traffic here."""
+    db_ok = repo.ping()
+    body = {"status": "ok" if db_ok else "degraded", "db": "ok" if db_ok else "down", "redis": redis_status()}
+    return JSONResponse(status_code=200 if db_ok else 503, content=body)
 
 
 @app.get("/tasks", summary="List all tasks", response_model=list[Task], responses=ERR_400)

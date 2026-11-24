@@ -7,9 +7,12 @@ services:
     environment:
       # Inside the compose network the database is reachable by its service name "db", not localhost.
       DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       db:
         condition: service_healthy  # wait until Postgres accepts connections, not just until it starts
+      redis:
+        condition: service_healthy
 
   db:
     # Pinned to 17: the postgres:18+ images keep data under /var/lib/postgresql instead of .../data.
@@ -23,6 +26,16 @@ services:
       - taskdata:/var/lib/postgresql/data  # the rows live here, outside the container
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 2s
+      timeout: 3s
+      retries: 15
+
+  # Stretch: Redis for W4 (jobs, caching). The api pings it on startup and in /health.
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
       interval: 2s
       timeout: 3s
       retries: 15
