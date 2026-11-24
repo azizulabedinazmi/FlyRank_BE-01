@@ -2,7 +2,12 @@
 __pycache__/
 *.pyc
 
-# SQLite database: created automatically on first run, so every clone starts fresh
+# Secrets: real values live in .env (never committed); .env.example is the committed template
+.env
+.env.*
+!.env.example
+
+# SQLite database (A2): created automatically on first run, so every clone starts fresh
 tasks.db
 tasks.db-journal
 *.db
