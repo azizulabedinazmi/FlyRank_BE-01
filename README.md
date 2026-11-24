@@ -13,9 +13,9 @@
   <h3>Task API</h3>
   <p>
     A small to-do list REST API with full CRUD, built by hand with Python and FastAPI.
-    Tasks are stored in a SQLite database, so they survive a restart. Every error is JSON, and Swagger UI documents every endpoint.
+    Tasks live in PostgreSQL running in Docker, and <code>docker compose up</code> starts the whole stack. Every error is JSON, and Swagger UI documents every endpoint.
     <br /><br />
-    FlyRank AI Internship · Backend AI Engineering · Week 2 (BE-01: CRUD API) and Week 3 (BE-02: connecting it to a database)
+    FlyRank AI Internship · Backend AI Engineering · BE-01 (CRUD API), BE-02 (SQLite) and A3 / BE-04 (Containerize your stack)
   </p>
 </div>
 
@@ -28,7 +28,11 @@
     <li><a href="#endpoints">Endpoints</a></li>
     <li><a href="#curl-example">Example: curl -i</a></li>
     <li><a href="#swagger-ui">Swagger UI</a></li>
-    <li><a href="#database">The Database (Week 3)</a></li>
+    <li><a href="#containerized">Containerized Stack: Postgres in Docker (A3)</a></li>
+    <li><a href="#swap">The Storage Swap: What Changed and What Didn't</a></li>
+    <li><a href="#a3-persistence">Persistence Proof (A3)</a></li>
+    <li><a href="#a3-stretch">Stretch Goals (A3)</a></li>
+    <li><a href="#database">The Database (Week 3, SQLite)</a></li>
     <li><a href="#sql-by-hand">SQL by Hand in DB Browser</a></li>
     <li><a href="#persistence">Persistence and "the API didn't change"</a></li>
     <li><a href="#ai-vs-me-db">AI vs Me (Week 3, Stage 6)</a></li>
@@ -53,7 +57,12 @@ CRUD operations behind almost every backend.
 - **SQLite storage (Week 3).** Tasks live in `tasks.db`. The file, the table and three example tasks are created automatically
   on first run, and every query is parameterized.
 - **Same API as Week 2.** The 19 checkpoint requests from Week 2 pass unchanged against the database version.
-- **Built in stages**, each with its own commit, so `git log` tells the story (Week 2: Stages 0–7, Week 3: Stages 0–5 + extras).
+- **PostgreSQL in Docker (A3).** `docker compose up` starts the API, Postgres (with a named volume, so data survives) and
+  Redis. Credentials come from a git-ignored `.env`; a committed `.env.example` lists the keys.
+- **Storage behind a repository.** Routes call `repo.list()`, `repo.create()` and so on. Switching from SQLite to
+  Postgres changed one file, `storage.py`.
+- **Built in stages**, each with its own commit, so `git log` tells the story (Week 2: Stages 0–7, Week 3: Stages 0–5 + extras,
+  A3: refactor + Stages 0–5 + extras).
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -63,7 +72,10 @@ CRUD operations behind almost every backend.
 - [FastAPI](https://fastapi.tiangolo.com/) for routing, validation and the OpenAPI schema
 - [Uvicorn](https://www.uvicorn.org/) as the server
 - [Pydantic](https://docs.pydantic.dev/) strict types (`StrictStr`, `StrictBool`)
-- [SQLite](https://sqlite.org/) through Python's built-in [`sqlite3`](https://docs.python.org/3/library/sqlite3.html) module (no extra install)
+- [PostgreSQL 17](https://www.postgresql.org/) (official `postgres` Docker image) through [psycopg 3](https://www.psycopg.org/psycopg3/) with a connection pool
+- [Docker](https://www.docker.com/) and Docker Compose, [python-dotenv](https://pypi.org/project/python-dotenv/) for `.env`
+- [Redis 7](https://redis.io/) (stretch: pinged on startup, ready for W4)
+- [SQLite](https://sqlite.org/) through Python's built-in [`sqlite3`](https://docs.python.org/3/library/sqlite3.html) module (the A2 storage, still in `sqlite_repository.py`)
 - [DB Browser for SQLite](https://sqlitebrowser.org/) to look inside `tasks.db`
 - Swagger UI (built into FastAPI) at `/docs`
 
@@ -71,31 +83,52 @@ CRUD operations behind almost every backend.
 
 ## 🎯 Getting Started <a name="getting-started"></a>
 
-You need Python 3.10 or newer.
+You need [Docker Desktop](https://www.docker.com/products/docker-desktop/) (or Podman). Nothing else: no Python, no Postgres install.
 
 ```bash
 git clone https://github.com/azizulabedinazmi/FlyRank_BE-01.git
 cd FlyRank_BE-01
-python -m venv .venv
+cp .env.example .env        # Windows PowerShell: Copy-Item .env.example .env   (then change the password)
+docker compose up
 ```
 
-Activate the virtual environment:
+That's the one command. It builds the API image, starts Postgres and Redis, waits until Postgres is healthy, then
+starts the API. The API runs at http://localhost:8000 and Swagger UI at http://localhost:8000/docs.
 
-- Windows: `.venv\Scripts\activate`
-- macOS / Linux: `source .venv/bin/activate`
+**No database setup is needed.** On startup the app runs [`db/schema.sql`](db/schema.sql)
+(`CREATE TABLE IF NOT EXISTS tasks ...`) and inserts three example tasks only if the table is empty.
 
-Install dependencies and start the server:
+### Variables (`.env`)
+
+| Variable | Used by | Example (from `.env.example`) |
+|---|---|---|
+| `POSTGRES_USER` / `POSTGRES_PASSWORD` / `POSTGRES_DB` | the `db` container on first start; compose builds the api's URL from them | `postgres` / `change-me` / `tasks` |
+| `DATABASE_URL` | the app when you run it outside Docker (see below) | `postgresql://postgres:change-me@localhost:5432/tasks` |
+| `REDIS_URL` | the app outside Docker (optional) | `redis://localhost:6379/0` |
+
+`.env` is git-ignored; only `.env.example` is committed. `compose.yaml` contains no passwords, only `${POSTGRES_PASSWORD}` references.
+Note: `POSTGRES_*` are only read when the volume is empty. To change the password later, run `docker compose down -v`
+(this deletes the data) and `up` again.
+
+### Useful commands
 
 ```bash
-pip install -r requirements.txt
-uvicorn main:app --reload
+docker compose up -d                 # run in the background
+docker compose logs -f api           # follow the API logs
+docker compose exec db psql -U postgres -d tasks        # SQL prompt inside the database
+docker compose down                  # stop and remove containers (data stays in the volume)
+docker compose down -v               # ...and delete the volume too (fresh database next time)
 ```
 
-The API runs at http://localhost:8000. Swagger UI is at http://localhost:8000/docs.
+### Running the API outside Docker (optional)
 
-**No database setup is needed.** On the first start the server creates `tasks.db` next to `main.py`, creates the
-`tasks` table and inserts three example tasks. To start over with a fresh database, stop the server, delete
-`tasks.db`, and start it again.
+Start only the database with `docker compose up -d db`, then:
+
+```bash
+python -m venv .venv && .venv\Scripts\activate      # macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn main:app --reload                           # reads DATABASE_URL from .env
+```
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -104,7 +137,7 @@ The API runs at http://localhost:8000. Swagger UI is at http://localhost:8000/do
 | Method | Path | What it does | Success | Errors |
 |--------|------|--------------|---------|--------|
 | GET | `/` | Describes the API | 200 | – |
-| GET | `/health` | Health check, returns `{"status": "ok"}` | 200 | – |
+| GET | `/health` | Runs `SELECT 1` on Postgres and pings Redis: `{"status": "ok", "db": "ok", "redis": "ok"}` | 200 | 503 database down |
 | GET | `/tasks` | Lists all tasks (optional `?search=`, `?done=`, `?sort=title`) | 200 | 400 bad query value |
 | GET | `/tasks/{id}` | Gets one task | 200 | 404 unknown id |
 | POST | `/tasks` | Creates a task from `{"title": "..."}` | 201 | 400 missing/empty title |
@@ -133,15 +166,17 @@ matches the assignment.
 
 ## 💻 Example: `curl -i` <a name="curl-example"></a>
 
+Against the Postgres stack (`docker compose up`):
+
 ```text
-$ curl -i -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d '{"title":"Buy milk"}'
+$ curl -i -X POST http://localhost:8000/tasks -H "Content-Type: application/json" -d '{"title":"Survive the restart"}'
 HTTP/1.1 201 Created
-date: Fri, 20 Nov 2026 12:02:41 GMT
+date: Tue, 24 Nov 2026 03:38:09 GMT
 server: uvicorn
-content-length: 40
+content-length: 51
 content-type: application/json
 
-{"id":4,"title":"Buy milk","done":false}
+{"id":5,"title":"Survive the restart","done":false}
 ```
 
 ```text
@@ -168,7 +203,147 @@ Open http://localhost:8000/docs. Every endpoint is listed, and **Try it out** se
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
-## 🗄️ The Database (Week 3) <a name="database"></a>
+## 🐳 Containerized Stack: Postgres in Docker (A3) <a name="containerized"></a>
+
+```text
+A1 (Week 2):  Client  ->  API  ->  a Python list in memory           (gone on restart)
+A2 (Week 3):  Client  ->  API  ->  SQLite file tasks.db              (one file on disk)
+A3 (now):     Client  ->  API container  ->  Postgres container       (a real database server, data in a Docker volume)
+```
+
+[`compose.yaml`](compose.yaml) describes three services:
+
+| Service | Image | What it does |
+|---|---|---|
+| `api` | built from [`Dockerfile`](Dockerfile) (`python:3.12-slim`, 243 MB) | The FastAPI app on port 8000. It reaches the database at host **`db`**, not `localhost`. |
+| `db` | `postgres:17` | Postgres on port 5432, data in the named volume **`taskdata`** mounted at `/var/lib/postgresql/data`. A `pg_isready` healthcheck makes the api wait until the database really accepts connections. |
+| `redis` | `redis:7-alpine` | Stretch: pinged on startup and by `/health`. W4 will use it. |
+
+**Why `postgres:17` and not `latest`:** from version 18 the official image stores data under `/var/lib/postgresql`
+instead of `/var/lib/postgresql/data`, so the volume path from the Docker guide would no longer match. Pinning the
+major version keeps the volume mount correct and the setup reproducible.
+
+### Schema ([`db/schema.sql`](db/schema.sql))
+
+```sql
+CREATE TABLE IF NOT EXISTS tasks (
+    id    BIGINT  GENERATED ALWAYS AS IDENTITY PRIMARY KEY,  -- a sequence: deleted ids are never reused
+    title TEXT    NOT NULL,
+    done  BOOLEAN NOT NULL DEFAULT FALSE                     -- a real boolean, no more 0/1
+);
+CREATE INDEX IF NOT EXISTS idx_tasks_done ON tasks (done);
+```
+
+The app runs this file on every startup (it is safe to re-run), then seeds three tasks only if `SELECT COUNT(*)` is 0.
+The create + count + seed run in one transaction behind `pg_advisory_xact_lock`, so two API containers starting at the
+same time can't both see an empty table and seed twice.
+
+### Every query is parameterized
+
+psycopg uses `%s` placeholders and sends the values separately from the SQL text:
+
+| Endpoint | SQL ([`postgres_repository.py`](postgres_repository.py)) |
+|---|---|
+| `GET /tasks` | `SELECT id, title, done FROM tasks ORDER BY id` (+ `WHERE title ILIKE %s ESCAPE '\'`, `done = %s`) |
+| `GET /tasks/{id}` | `SELECT id, title, done FROM tasks WHERE id = %s` |
+| `POST /tasks` | `INSERT INTO tasks (title, done) VALUES (%s, %s) RETURNING id, title, done` |
+| `PUT /tasks/{id}` | `UPDATE tasks SET title = %s, done = %s WHERE id = %s RETURNING id, title, done` |
+| `DELETE /tasks/{id}` | `DELETE FROM tasks WHERE id = %s` (0 rows → 404) |
+| `GET /stats` | `SELECT COUNT(*), COUNT(*) FILTER (WHERE done) FROM tasks` |
+
+`RETURNING` hands back the row Postgres actually stored, so the response always shows the real id. One Postgres-specific
+detail: Python ints have no limit but `BIGINT` does, so an id like `/tasks/99999999999999999999` is answered with
+404 before it reaches the driver, instead of a 500.
+
+### The data in the database
+
+![psql inside the db container: \dt lists the tasks table, SELECT * FROM tasks shows the rows](docs/a3-psql-data.png)
+
+```text
+$ docker compose exec db psql -U postgres -d tasks -c "\dt" -c "SELECT * FROM tasks ORDER BY id;"
+ Schema | Name  | Type  |  Owner
+--------+-------+-------+----------
+ public | tasks | table | postgres
+
+ id |        title        | done
+----+---------------------+------
+  2 | Build a CRUD API    | f
+  3 | Push to GitHub      | f
+  4 | Buy milk            | f
+  5 | Survive the restart | f
+  6 | Water the plants    | f
+```
+
+(Task 1 is missing because the checkpoint suite deletes it, which also shows its id was not reused: the next new tasks got 5 and 6.)
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🔁 The Storage Swap: What Changed and What Didn't <a name="swap"></a>
+
+The A3 goal was to prove that "switch storage" changes only one file. To be honest about how I got there:
+
+1. **In A2 my SQL lived directly inside the route functions**, so there was no single module to swap. The first A3
+   commit (`Refactor: move SQLite storage behind a repository interface`) moved that SQL, unchanged, into
+   [`sqlite_repository.py`](sqlite_repository.py) and made the routes call `repo.list()`, `repo.get()`, `repo.create()`,
+   `repo.update()`, `repo.delete()`, `repo.stats()`. The interface is written down in [`repository.py`](repository.py).
+   The Week 2 suite passed 19/19 after this refactor, still on SQLite.
+2. **Then the swap.** I wrote [`postgres_repository.py`](postgres_repository.py) with the same methods returning the
+   same dicts, and changed **one file**, [`storage.py`](storage.py), from `SqliteTaskRepository()` to
+   `PostgresTaskRepository(os.environ["DATABASE_URL"])`. `git diff 8a76493~1 8a76493 -- main.py` is empty:
+   the Stage 3 commit that switched engines did not touch `main.py`.
+3. **Routes, validation, status codes and response shapes did not change.** The same 19-request Week 2 checkpoint
+   script, unmodified, passes **19/19** against Postgres ([full output](docs/a3-proof.md#1-week-2-checkpoint-suite-unchanged-against-the-postgres-stack)).
+4. **The one route I did change on purpose** is `/health`, later, as a stretch goal: it now checks the database and
+   Redis. That's a new feature, not something the swap forced.
+
+Three storage engines (a list, a file, a server) have now sat under the same API, and a test suite that only talks HTTP
+can't tell them apart. That's what "storage is an implementation detail" means, and it's what the layered architecture
+in A15 will formalize.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## ✅ Persistence Proof (A3) <a name="a3-persistence"></a>
+
+How I checked it (full output in [`docs/a3-proof.md`](docs/a3-proof.md#2-persistence-across-docker-compose-down--up)):
+
+1. `docker compose up -d`, then created "Survive the restart" (id 5) and "Water the plants" (id 6) with `POST /tasks`.
+2. `docker compose down`: the api, db and redis **containers and the network are removed**. `docker ps -a` shows
+   nothing; `docker volume ls` still shows `task-api_taskdata`.
+3. `docker compose up -d`: brand-new containers. `GET /tasks` returned the same five tasks, ids 2–6.
+4. `docker compose restart api` (app-only restart): `GET /stats` still `{"total":5,...}`, so the seed did **not** run again.
+5. **Clean clone:** `git clone` into a new folder, `.env` absent, `cp .env.example .env`, `docker compose up`.
+   `GET /tasks` returned the three seeded tasks 20 seconds later, with no manual database setup.
+
+**The opposite experiment (no volume):** I ran a separate `postgres:17` container *without* `-v`, created a table and a
+row, `docker rm -f` the container and started a fresh one: `\dt` said "Did not find any relations." A container's own
+filesystem dies with the container. A volume is storage that lives outside it, which is why the compose stack keeps its
+rows and the throwaway container didn't.
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## ⭐ Stretch Goals (A3) <a name="a3-stretch"></a>
+
+- **Real health check.** `GET /health` runs `SELECT 1` and returns `{"status":"ok","db":"ok","redis":"ok"}`, or **503**
+  with `"db":"down"` if Postgres can't be reached. A load balancer polls an endpoint like this and stops sending
+  traffic to any instance that answers with an error, so users never hit a server whose database is gone.
+- **Redis in compose.** `redis:7-alpine` with a healthcheck; the API logs `Redis PING: ok` on startup and reports it in
+  `/health`. Redis being down doesn't break the task API.
+- **Index + `EXPLAIN ANALYZE`.** [`db/explain_demo.sql`](db/explain_demo.sql) fills a separate `tasks_bench` table with
+  200,000 rows (1% done), runs `EXPLAIN ANALYZE SELECT id, title FROM tasks_bench WHERE done` before and after
+  `CREATE INDEX ... (done)`, then drops the table:
+
+  | | Plan | Execution time |
+  |---|---|---|
+  | Before | `Seq Scan on tasks_bench`, Rows Removed by Filter: 198000 | 9.93 ms |
+  | After | `Index Scan using idx_tasks_bench_done` | 1.22 ms |
+
+  About 8× faster, because Postgres reads only the 2,000 matching rows instead of all 200,000. The index only helps
+  because the filter is selective. With half the rows done, Postgres would ignore it and scan anyway.
+  Run it yourself: `docker compose exec -T db psql -U postgres -d tasks < db/explain_demo.sql`
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🗄️ The Database (Week 3, SQLite) <a name="database"></a>
 
 ```text
 Week 2:   Client  ->  API  ->  a Python list in memory
@@ -517,10 +692,19 @@ I could only spot those failures because I had built and tested the API myself f
 
 | Path | Purpose |
 |---|---|
-| `main.py` | The whole API: routes, validation, and the SQLite storage layer (`get_db`, `init_db`). |
-| `tasks.db` | The SQLite database. Created on first run, not committed (see `.gitignore`). |
-| `requirements.txt` | Pinned `fastapi` and `uvicorn` versions (`sqlite3` is built into Python). |
-| `docs/` | README screenshots (Swagger, DB Browser), the Stage 4 SQL log, and the repo banner (`banner.png`, made from `banner.html`). |
+| `main.py` | Routes and validation. Talks to storage only through `repo`. |
+| `repository.py` | The storage interface (`TaskRepository`) and the three seed tasks. |
+| `storage.py` | The one place that picks the storage engine (Postgres now, SQLite in A2). |
+| `postgres_repository.py` | A3 storage: psycopg 3 pool, parameterized SQL, schema + seed on startup. |
+| `sqlite_repository.py` | A2 storage, kept to show the swap. |
+| `cache.py` | Stretch: Redis ping used by startup and `/health`. |
+| `db/schema.sql` | `CREATE TABLE IF NOT EXISTS tasks` + index, run by the app on startup. |
+| `db/explain_demo.sql` | Stretch: `EXPLAIN ANALYZE` before/after an index on 200k rows. |
+| `Dockerfile`, `.dockerignore` | Builds the API image (`.env`, `.venv`, docs and AI folders are kept out of it). |
+| `compose.yaml` | `api` + `db` (Postgres 17, volume `taskdata`) + `redis`. `docker compose up` runs it all. |
+| `.env.example` | The variables to set. Copy to `.env` (git-ignored). |
+| `requirements.txt` | Pinned `fastapi`, `uvicorn`, `psycopg[binary,pool]`, `python-dotenv`, `redis`. |
+| `docs/` | Screenshots, the A3 proof log (`a3-proof.md`), the Stage 4 SQL log, and the repo banner. |
 | `ai-version/` | Week 2, Stage 7: the AI-generated in-memory API (v1, v2), both prompts, the test script and the results. |
 | `ai-version-db/` | Week 3, Stage 6: the AI-generated SQLite migration (v1, v2), both prompts, the starting in-memory file, the DB checkpoint script and the results. |
 | `LICENSE` | MIT License. |
@@ -564,7 +748,8 @@ the trusted answer across AI engines.
 The [FlyRank AI Internship](https://internship.flyrank.ai/) is a free, remote, self-paced program built around real
 work, expert feedback and verifiable credentials. It has six tracks: General AI Fluency, Machine Learning,
 AI Marketing, Front-end AI Engineering, Backend AI Engineering, and UI/UX Design. This project covers assignments
-**BE-01** (Build your first CRUD API) and **BE-02** (Connecting your CRUD to the database) of the Backend AI Engineering track.
+**BE-01** (Build your first CRUD API), **BE-02** (Connecting your CRUD to the database) and **BE-04 / A3**
+(Containerize your stack) of the Backend AI Engineering track.
 
 My internship credential can be checked here:
 
