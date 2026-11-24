@@ -38,12 +38,16 @@ class Task(BaseModel):
     done: bool
 
 
+# Postgres text can't hold a NUL character (SQLite could), so reject it as bad input instead of a 500.
+NO_NUL = r"^[^\x00]*$"
+
+
 class TaskCreate(BaseModel):
-    title: StrictStr | None = Field(default=None, examples=["Buy milk"])
+    title: StrictStr | None = Field(default=None, pattern=NO_NUL, examples=["Buy milk"])
 
 
 class TaskUpdate(BaseModel):
-    title: StrictStr | None = Field(default=None, examples=["Buy oat milk"])
+    title: StrictStr | None = Field(default=None, pattern=NO_NUL, examples=["Buy oat milk"])
     done: StrictBool | None = Field(default=None, examples=[True])
 
 
