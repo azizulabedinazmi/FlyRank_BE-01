@@ -32,6 +32,7 @@
     <li><a href="#swap">The Storage Swap: What Changed and What Didn't</a></li>
     <li><a href="#a3-persistence">Persistence Proof (A3)</a></li>
     <li><a href="#a3-stretch">Stretch Goals (A3)</a></li>
+    <li><a href="#ai-vs-me-a3">AI vs Me (A3, Stage 6)</a></li>
     <li><a href="#database">The Database (Week 3, SQLite)</a></li>
     <li><a href="#sql-by-hand">SQL by Hand in DB Browser</a></li>
     <li><a href="#persistence">Persistence and "the API didn't change"</a></li>
@@ -293,8 +294,11 @@ The A3 goal was to prove that "switch storage" changes only one file. To be hone
    the Stage 3 commit that switched engines did not touch `main.py`.
 3. **Routes, validation, status codes and response shapes did not change.** The same 19-request Week 2 checkpoint
    script, unmodified, passes **19/19** against Postgres ([full output](docs/a3-proof.md#1-week-2-checkpoint-suite-unchanged-against-the-postgres-stack)).
-4. **The one route I did change on purpose** is `/health`, later, as a stretch goal: it now checks the database and
-   Redis. That's a new feature, not something the swap forced.
+4. **The routes I did change, later and on purpose:** `/health`, as a stretch goal (it now checks the database and
+   Redis). And one validation rule that the AI rematch exposed: SQLite stores a title containing a NUL character
+   (`\u0000`), but Postgres `text` can't, so after the swap such a title gave a **500**. Titles with NUL are now a
+   **400** like any other invalid input. That one difference between engines was *not* caught by my own tests. See
+   [AI vs Me (A3)](#ai-vs-me-a3).
 
 Three storage engines (a list, a file, a server) have now sat under the same API, and a test suite that only talks HTTP
 can't tell them apart. That's what "storage is an implementation detail" means, and it's what the layered architecture
@@ -340,6 +344,109 @@ rows and the throwaway container didn't.
   About 8× faster, because Postgres reads only the 2,000 matching rows instead of all 200,000. The index only helps
   because the filter is selective. With half the rows done, Postgres would ignore it and scan anyway.
   Run it yourself: `docker compose exec -T db psql -U postgres -d tasks < db/explain_demo.sql`
+
+<p align="right">(<a href="#readme-top">back to top</a>)</p>
+
+## 🤖 AI vs Me (A3, Stage 6) <a name="ai-vs-me-a3"></a>
+
+After building the stack by hand, I gave the same job to an AI (Claude, in a fresh session that saw only the prompt and
+my A2 SQLite `main.py`). Its code is kept apart in [`ai-version-compose/`](ai-version-compose/), and my stack was not
+changed by it (except for the NUL fix below, which I made myself after the AI pointed out the problem).
+
+- [`PROMPT-v1.md`](ai-version-compose/PROMPT-v1.md) and [`v1/`](ai-version-compose/v1/): the first prompt and what it produced
+- [`PROMPT-v2.md`](ai-version-compose/PROMPT-v2.md) and [`v2/`](ai-version-compose/v2/): the rematch
+- [`compose_checkpoint.py`](ai-version-compose/compose_checkpoint.py): 25 checks. It copies a project to a temp folder
+  (no `.env`, like a stranger's clone), runs `cp .env.example .env` and `docker compose up --build`, runs the Week 2
+  suite, checks search/sort/stats/huge ids, does `down` + `up` and a restart, deletes and re-creates to probe id reuse,
+  stops the `db` container to test `/health`, and reads the compose file for hardcoded secrets.
+  Run: `python ai-version-compose/compose_checkpoint.py ai-version-compose/v1` (stop the main stack first, the ports overlap).
+- `results-mine.md`, `results-ai-v1.md`, `results-ai-v2.md`: full output
+
+### Prompt (v1)
+
+```text
+Here is my to-do list API (Python, FastAPI). It stores tasks in SQLite (main.py and requirements.txt attached).
+I want to move it to PostgreSQL running in Docker, and start the app and the database together with one command.
+
+- Use Postgres in Docker with the official postgres image, and psycopg 3 as the driver.
+- Keep the same tasks table: id (serial primary key), title (text), done (boolean).
+- On startup, create the table if it doesn't exist and insert the 3 example tasks only if the table is empty.
+- All the endpoints (GET /tasks, GET /tasks/{id}, POST /tasks, PUT /tasks/{id}, DELETE /tasks/{id}, plus /, /health
+  and /stats) must behave exactly the same as now: same URLs, bodies, responses and status codes.
+- Use parameterized queries everywhere.
+- The database password must come from a .env file, never hardcoded. Give me a .env.example too.
+- Use a volume so the data survives restarts.
+- Write a Dockerfile for the app and a docker-compose.yml so that `docker compose up` starts everything.
+```
+
+### Results
+
+v1's `docker compose up` worked first try from a clean clone (ready in 9 s), and its data survived `down` + `up`.
+
+| Check | Mine | AI v1 | AI v2 |
+|---|---|---|---|
+| Clean clone → `docker compose up` works, no manual DB setup | pass | pass | pass |
+| Week 2 suite (19 requests) | 19/19 | 19/19 | 19/19 |
+| Data survives `down` + `up`; seed runs once; ids never reused | pass | pass | pass |
+| Password from `.env`, not hardcoded; `.env` kept out of git **and** the image | pass | pass | pass |
+| Postgres pinned to 17 (matches the `/var/lib/postgresql/data` volume path) | pass | pass | pass |
+| Waits for a *healthy* db (`pg_isready`), not just a started one | pass | pass | pass |
+| **Routes contain no SQL** (one repository module) | pass | **fail**: 9 SQL statements inside `main.py` ❌ | pass |
+| **One `DATABASE_URL` connection string** | pass | **fail**: five separate `POSTGRES_*` variables ❌ | pass |
+| **`/health` notices the database is down** | 503 | **200 `{"status":"ok"}`** with Postgres stopped ❌ | 503 |
+| Image size | 243 MB | 221 MB | 222 MB |
+| **Score** | **25/25** | **22/25** | **25/25** |
+
+### 1. What the AI did better
+
+- **Runs as a non-root user** (`useradd appuser` / `USER appuser`) and copies only the files the app needs
+  (`COPY main.py .`) instead of my `COPY . .`. If someone broke into the container they'd have fewer rights and less
+  to read. Both versions are also ~20 MB smaller because of that.
+- **Fails fast on a missing secret.** `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}` makes
+  `docker compose up` stop with a clear message. Mine would start Postgres with an empty variable and fail later with a
+  less obvious error.
+- **Didn't publish the database port** in v1. Only the api container could reach Postgres, which is the safer default.
+  (I publish 5432 on purpose so psql/DBeaver and a local `uvicorn` can connect; v2 does too because I asked.)
+- **`SELECT ... FOR UPDATE` in PUT** (v1): it locks the row between reading the current values and writing the merged
+  ones, so two simultaneous PUTs can't overwrite each other's field. Mine reads, then writes, without a lock.
+- **It found a bug in my code.** v2's notes said a title with a NUL character would cause a 500, because Postgres
+  `text` can't store `\u0000`. I tested mine: also a 500 (SQLite had stored it fine). Now it's a 400. My 25 checks
+  didn't cover it, and neither did the Week 2 suite.
+
+### 2. What it got wrong or quietly ignored
+
+- **SQL spread through the routes (v1).** Every route opens a pool connection and runs its own SQL, exactly like my
+  A2 code. The API works, but the next storage change would touch every route again. The assignment's golden rule is
+  "keep every database line in one module", and v1 ignored it because my prompt never said so.
+- **No connection string (v1).** It builds the connection from five `POSTGRES_*` variables with defaults
+  (`host="db"`, `user="tasks"`), and reads `os.environ["POSTGRES_PASSWORD"]` at import time. Run `uvicorn main:app` outside
+  Docker and it crashes with a `KeyError`, since nothing loads `.env`.
+- **A health check that lies (v1).** `/health` kept answering `200 {"status": "ok"}` with the database container
+  stopped. A load balancer would keep sending users to an instance that can't serve a single task.
+- **No connection pool (v2).** v2 opens a new connection on every call. That's correct, but each request pays for a
+  fresh TCP + auth handshake. v1 and mine reuse connections from a pool.
+
+### 3. What my prompt forgot to specify (the AI decided for me)
+
+- **Where the SQL lives.** I asked for "the same endpoints", not for a repository, so it kept the A2 structure.
+- **How the app gets its settings.** "Password from .env" was all I wrote. It chose separate variables and no
+  `.env` loading, which only works inside compose.
+- **What `/health` should prove.** I listed `/health` under "behave exactly the same", and v1 took that literally.
+- **Whether to publish 5432, the Python version, non-root, and the 503 body.** All left to the AI. v2 picked
+  `{"status": "error"}` for 503 where mine says `"degraded"`, because I never specified it.
+
+### Rematch (v2)
+
+[`PROMPT-v2.md`](ai-version-compose/PROMPT-v2.md) added: one repository module with no SQL in routes, a single
+`DATABASE_URL` loaded with python-dotenv (so it runs outside Docker too), published 5432 and the `db` service name,
+`db/schema.sql`, a `/health` that runs `SELECT 1` and returns 503, and "pin the image to match the volume path".
+**v2 passed 25/25.** It kept v1's good habits (non-root, `:?` fail-fast) and added a startup retry loop, but
+dropped the connection pool.
+
+**Lesson:** v1 passed all 19 API tests and survived a restart, and it was still structurally wrong in three ways that
+only show up when you stop the database, run it outside Docker, or try the next storage swap. I could only write the
+checks for those because I'd built the stack myself first. Going the other way, the AI also caught a real bug in my
+version that none of my checks covered.
 
 <p align="right">(<a href="#readme-top">back to top</a>)</p>
 
@@ -706,6 +813,7 @@ I could only spot those failures because I had built and tested the API myself f
 | `requirements.txt` | Pinned `fastapi`, `uvicorn`, `psycopg[binary,pool]`, `python-dotenv`, `redis`. |
 | `docs/` | Screenshots, the A3 proof log (`a3-proof.md`), the Stage 4 SQL log, and the repo banner. |
 | `ai-version/` | Week 2, Stage 7: the AI-generated in-memory API (v1, v2), both prompts, the test script and the results. |
+| `ai-version-compose/` | A3, Stage 6: the AI-generated Postgres + compose stacks (v1, v2), both prompts, the 25-check compose harness and the results. |
 | `ai-version-db/` | Week 3, Stage 6: the AI-generated SQLite migration (v1, v2), both prompts, the starting in-memory file, the DB checkpoint script and the results. |
 | `LICENSE` | MIT License. |
 | `README.md` | This file. |
