@@ -1,7 +1,4 @@
-import os
-import sqlite3
-from contextlib import asynccontextmanager, closing
-from pathlib import Path
+from contextlib import asynccontextmanager
 from typing import Literal
 
 from fastapi import FastAPI, Request
@@ -9,57 +6,26 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field, StrictBool, StrictStr
 
+from storage import make_repository
+
 # ---------------------------------------------------------------------------
-# Storage layer: SQLite
+# Storage: every database line lives behind this one object (see repository.py).
+# Which engine it is gets decided in storage.py; nothing below knows or cares.
 # ---------------------------------------------------------------------------
-# tasks.db sits next to this file. TASKS_DB lets tests point at a throwaway file.
-DB_PATH = Path(os.environ.get("TASKS_DB", Path(__file__).parent / "tasks.db"))
-
-SEED_TASKS = [
-    ("Learn HTTP methods", 1),
-    ("Build a CRUD API", 0),
-    ("Push to GitHub", 0),
-]
-
-
-def get_db() -> sqlite3.Connection:
-    """Open a connection. Connecting to a file that doesn't exist creates it."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row  # rows behave like dicts: row["title"]
-    return conn
-
-
-def init_db():
-    """Create the tasks table if it's missing, then seed it only if it's empty."""
-    with get_db() as conn:
-        conn.execute(
-            """
-            CREATE TABLE IF NOT EXISTS tasks (
-                id    INTEGER PRIMARY KEY AUTOINCREMENT,
-                title TEXT    NOT NULL,
-                done  INTEGER NOT NULL DEFAULT 0 CHECK (done IN (0, 1))
-            )
-            """
-        )
-        # Index on done so GET /tasks?done=... and /stats don't scan every row.
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_tasks_done ON tasks (done)")
-        (count,) = conn.execute("SELECT COUNT(*) FROM tasks").fetchone()
-        if count == 0:
-            # Same transaction as the COUNT: all three seed rows land, or none do.
-            conn.executemany("INSERT INTO tasks (title, done) VALUES (?, ?)", SEED_TASKS)
-    conn.close()
+repo = make_repository()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    init_db()
+    repo.init()
     yield
+    repo.close()
 
 
 app = FastAPI(
     title="Task API",
-    version="2.0",
-    description="A tiny to-do list API with full CRUD, stored in a SQLite database (tasks.db).",
+    version="3.0",
+    description="A tiny to-do list API with full CRUD. Storage sits behind a repository interface.",
     lifespan=lifespan,
 )
 
@@ -101,16 +67,6 @@ def not_found(task_id: int):
     return JSONResponse(status_code=404, content={"error": f"Task {task_id} not found"})
 
 
-def row_to_task(row: sqlite3.Row) -> dict:
-    # SQLite stores booleans as 0/1; the API keeps sending real true/false.
-    return {"id": row["id"], "title": row["title"], "done": bool(row["done"])}
-
-
-def db_get_task(conn: sqlite3.Connection, task_id: int):
-    row = conn.execute("SELECT id, title, done FROM tasks WHERE id = ?", (task_id,)).fetchone()
-    return row_to_task(row) if row else None
-
-
 # FastAPI normally answers bad input with 422; this assignment wants 400 + {"error": ...}.
 @app.exception_handler(RequestValidationError)
 def validation_error(request: Request, exc: RequestValidationError):
@@ -121,7 +77,7 @@ def validation_error(request: Request, exc: RequestValidationError):
 
 @app.get("/", summary="Describe the API")
 def root():
-    return {"name": "Task API", "version": "2.0", "endpoints": ["/tasks", "/stats"]}
+    return {"name": "Task API", "version": "3.0", "endpoints": ["/tasks", "/stats"]}
 
 
 @app.get("/health", summary="Check the server is alive")
@@ -129,46 +85,21 @@ def health():
     return {"status": "ok"}
 
 
-# Column names can't be "?" parameters, so ORDER BY only ever uses one of these fixed strings.
-ORDER_BY = {"id": "id", "title": "title COLLATE NOCASE, id"}
-
-
-def escape_like(text: str) -> str:
-    """Make % and _ in the user's search match literally instead of acting as wildcards."""
-    return text.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
-
-
 @app.get("/tasks", summary="List all tasks", response_model=list[Task], responses=ERR_400)
 def list_tasks(search: str | None = None, done: bool | None = None, sort: Literal["id", "title"] = "id"):
     """Optional filters: `?search=milk` (title contains, case-insensitive), `?done=true|false`,
     `?sort=title`. With no query string this returns every task, ordered by id, as before."""
-    sql = "SELECT id, title, done FROM tasks"
-    where, params = [], []
-    if search is not None:
-        where.append("title LIKE ? ESCAPE '\\'")
-        params.append(f"%{escape_like(search)}%")
-    if done is not None:
-        where.append("done = ?")
-        params.append(int(done))
-    if where:
-        sql += " WHERE " + " AND ".join(where)
-    sql += " ORDER BY " + ORDER_BY[sort]
-    with closing(get_db()) as conn:
-        rows = conn.execute(sql, params).fetchall()
-    return [row_to_task(r) for r in rows]
+    return repo.list(search=search, done=done, sort=sort)
 
 
 @app.get("/stats", summary="Count tasks in SQL", response_model=Stats)
 def stats():
-    with closing(get_db()) as conn:
-        total, done = conn.execute("SELECT COUNT(*), COALESCE(SUM(done), 0) FROM tasks").fetchone()
-    return {"total": total, "done": done, "open": total - done}
+    return repo.stats()
 
 
 @app.get("/tasks/{task_id}", summary="Get one task by id", response_model=Task, responses=ERR_404)
 def get_task(task_id: int):
-    with closing(get_db()) as conn:
-        task = db_get_task(conn, task_id)
+    task = repo.get(task_id)
     if task is None:
         return not_found(task_id)
     return task
@@ -179,36 +110,32 @@ def create_task(body: TaskCreate):
     """Send `{"title": "..."}`. The server assigns the id and sets `done` to false."""
     if body.title is None or body.title.strip() == "":
         return bad_request("title is required and cannot be empty")
-    with closing(get_db()) as conn, conn:  # inner "conn" commits on success
-        cur = conn.execute("INSERT INTO tasks (title, done) VALUES (?, ?)", (body.title.strip(), 0))
-        task = db_get_task(conn, cur.lastrowid)  # the id comes from the database
-    return task
+    return repo.create(body.title.strip())
 
 
 @app.put("/tasks/{task_id}", summary="Update a task's title and/or done", response_model=Task,
          responses={**ERR_400, **ERR_404})
 def update_task(task_id: int, body: TaskUpdate):
     """Send `title`, `done`, or both. At least one is required."""
-    with closing(get_db()) as conn, conn:
-        task = db_get_task(conn, task_id)
-        if task is None:
-            return not_found(task_id)
-        if body.title is None and body.done is None:
-            return bad_request("send at least one of: title, done")
-        if body.title is not None and body.title.strip() == "":
-            return bad_request("title cannot be empty")
-        # Keep the current value for any field the client didn't send.
-        title = body.title.strip() if body.title is not None else task["title"]
-        done = body.done if body.done is not None else task["done"]
-        conn.execute("UPDATE tasks SET title = ?, done = ? WHERE id = ?", (title, int(done), task_id))
-        return db_get_task(conn, task_id)
+    task = repo.get(task_id)
+    if task is None:
+        return not_found(task_id)
+    if body.title is None and body.done is None:
+        return bad_request("send at least one of: title, done")
+    if body.title is not None and body.title.strip() == "":
+        return bad_request("title cannot be empty")
+    # Keep the current value for any field the client didn't send.
+    title = body.title.strip() if body.title is not None else task["title"]
+    done = body.done if body.done is not None else task["done"]
+    updated = repo.update(task_id, title, done)
+    if updated is None:  # deleted between the read and the write
+        return not_found(task_id)
+    return updated
 
 
 @app.delete("/tasks/{task_id}", summary="Delete a task", status_code=204, responses=ERR_404)
 def delete_task(task_id: int):
-    with closing(get_db()) as conn, conn:
-        cur = conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
-    if cur.rowcount == 0:  # no row had that id
+    if not repo.delete(task_id):
         return not_found(task_id)
     return Response(status_code=204)
 
