@@ -1,0 +1,11 @@
+# Keep secrets, local state and things the API doesn't need out of the image.
+.env
+.env.*
+.git
+.venv
+__pycache__
+*.pyc
+*.db
+docs
+ai-version
+ai-version-db
