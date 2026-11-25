@@ -1,0 +1,62 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640" role="img" aria-labelledby="t d">
+<title id="t">Task API: a hand-built CRUD REST API in Python and FastAPI, running on PostgreSQL in Docker</title>
+<desc id="d">Animated: docker compose up starts db, redis and api; a task "Survive the restart" is created (201);
+docker compose down removes the containers; docker compose up brings them back and GET /tasks/5 returns 200 because the
+row lives on the Docker volume. By Azizul Abedin Azmi, FlyRank verified.</desc>
+<defs>
+ <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse"><path d="M40 0H0V40" fill="none" stroke="#FFFFFF" stroke-opacity=".035"/></pattern>
+ <radialGradient id="g1" cx="85%" cy="15%" r="45%"><stop offset="0" stop-color="#2ECC80" stop-opacity=".18"/><stop offset="1" stop-color="#2ECC80" stop-opacity="0"/></radialGradient>
+ <radialGradient id="g2" cx="10%" cy="95%" r="50%"><stop offset="0" stop-color="#1A7A4A" stop-opacity=".35"/><stop offset="1" stop-color="#1A7A4A" stop-opacity="0"/></radialGradient>
+ <style>
+  text{font-family:"Segoe UI",-apple-system,Roboto,Helvetica,Arial,sans-serif}
+  .mono{font-family:Consolas,"SF Mono",Menlo,monospace;font-size:17px}
+  .eyebrow{font-size:17px;letter-spacing:3px;font-weight:600;fill:#6FDCA4}
+  .h1{font-size:92px;font-weight:800;fill:#fff;letter-spacing:-2px}
+  .sub{font-size:26px;fill:#B9D3C8}
+  .chip{font-family:Consolas,"SF Mono",Menlo,monospace;font-size:18px;font-weight:700}
+  .name{font-size:22px;font-weight:600;fill:#fff}
+  .prompt{fill:#6FDCA4;font-weight:700} .cmd{fill:#fff} .ok{fill:#6FDCA4} .p{fill:#E8F3EE}
+  .m{fill:#6FDCA4;font-weight:700} .mut{fill:#6E8F85} .v{fill:#F2C66D} .th{fill:#6E8F85;font-weight:600}
+  .pill{font-family:Consolas,"SF Mono",Menlo,monospace;font-size:13px;font-weight:700}
+  @keyframes t0{0%,2.0%{opacity:0}3.8%,93.0%{opacity:1}98.0%,100%{opacity:0}}.t0{animation:t0 16.0s linear infinite}@keyframes t1{0%,7.0%{opacity:0}8.8%,93.0%{opacity:1}98.0%,100%{opacity:0}}.t1{animation:t1 16.0s linear infinite}@keyframes t2{0%,10.0%{opacity:0}11.8%,93.0%{opacity:1}98.0%,100%{opacity:0}}.t2{animation:t2 16.0s linear infinite}@keyframes t3{0%,13.0%{opacity:0}14.8%,93.0%{opacity:1}98.0%,100%{opacity:0}}.t3{animation:t3 16.0s linear infinite}@keyframes t4{0%,21.0%{opacity:0}22.8%,93.0%{opacity:1}98.0%,100%{opacity:0}}.t4{animation:t4 16.0s linear infinite}@keyframes t5{0%,33.0%{opacity:0}34.8%,93.0%{opacity:1}98.0%,100%{opacity:0}}.t5{animation:t5 16.0s linear infinite}@keyframes t6{0%,47.0%{opacity:0}48.8%,93.0%{opacity:1}98.0%,100%{opacity:0}}.t6{animation:t6 16.0s linear infinite}@keyframes t7{0%,57.0%{opacity:0}58.8%,93.0%{opacity:1}98.0%,100%{opacity:0}}.t7{animation:t7 16.0s linear infinite}@keyframes cur{0%{transform:translateY(0)}2.0%{transform:translateY(0px)}7.0%{transform:translateY(31px)}10.0%{transform:translateY(62px)}13.0%{transform:translateY(93px)}21.0%{transform:translateY(124px)}33.0%{transform:translateY(155px)}47.0%{transform:translateY(186px)}57.0%{transform:translateY(217px)}100%{transform:translateY(217px)}}.curpos{animation:cur 16.0s steps(1,end) infinite}@keyframes blink{0%,49%{opacity:1}50%,100%{opacity:0}}.blink{animation:blink 1s steps(1,end) infinite}@keyframes dim{0%,34.0%{opacity:1}36.0%,49.0%{opacity:.28}51.0%,100%{opacity:1}}.dim{animation:dim 16.0s linear infinite}@keyframes stup1{0%,0.0%{opacity:0}1.8%,34.0%{opacity:1}35.5%,100%{opacity:0}}.stup1{animation:stup1 16.0s linear infinite}@keyframes stdown{0%,34.0%{opacity:0}35.8%,49.0%{opacity:1}50.5%,100%{opacity:0}}.stdown{animation:stdown 16.0s linear infinite}@keyframes stup2{0%,49.0%{opacity:0}50.8%,93.0%{opacity:1}98.0%,100%{opacity:0}}.stup2{animation:stup2 16.0s linear infinite}@keyframes row5{0%,22.0%{opacity:0}23.8%,93.0%{opacity:1}98.0%,100%{opacity:0}}.row5{animation:row5 16.0s linear infinite}@keyframes glow{0%,22%{opacity:0}24%{opacity:.55}30%{opacity:0}57.0%{opacity:0}59.0%{opacity:.55}65.0%,100%{opacity:0}}.glow{animation:glow 16.0s linear infinite}@media (prefers-reduced-motion: reduce){*{animation:none!important}.t0{opacity:1}.t1{opacity:1}.t2{opacity:1}.t3{opacity:1}.t4{opacity:1}.t5{opacity:1}.t6{opacity:1}.t7{opacity:1}.row5,.stup2{opacity:1}.stup1,.stdown,.glow{opacity:0}.dim{opacity:1}.curpos{transform:translateY(217px)}}
+ </style>
+</defs>
+<rect width="1280" height="640" fill="#051F21"/><rect width="1280" height="640" fill="url(#g2)"/>
+<rect width="1280" height="640" fill="url(#g1)"/><rect width="1280" height="640" fill="url(#grid)"/>
+
+<text x="72" y="98" class="eyebrow">FLYRANK AI INTERNSHIP · BE-01 · BE-02 · A3</text>
+<text x="66" y="200" class="h1">Task API</text>
+<text x="72" y="262" class="sub">A hand-built CRUD REST API in Python &amp;</text>
+<text x="72" y="298" class="sub">FastAPI, now on PostgreSQL in Docker.</text>
+<text x="72" y="334" class="sub">One command starts the stack, and the</text>
+<text x="72" y="370" class="sub">data survives a restart.</text>
+<rect x="72" y="404" width="55" height="36" rx="8" fill="#2F80ED"/><text x="99.5" y="428" text-anchor="middle" class="chip" fill="#fff">GET</text><rect x="137" y="404" width="66" height="36" rx="8" fill="#1FA971"/><text x="170.0" y="428" text-anchor="middle" class="chip" fill="#fff">POST</text><rect x="213" y="404" width="55" height="36" rx="8" fill="#E59A1A"/><text x="240.5" y="428" text-anchor="middle" class="chip" fill="#fff">PUT</text><rect x="278" y="404" width="88" height="36" rx="8" fill="#E5484D"/><text x="322.0" y="428" text-anchor="middle" class="chip" fill="#fff">DELETE</text><rect x="377" y="404" width="108" height="36" rx="8" fill="none" stroke="#6FDCA4" stroke-width="2"/><text x="431.0" y="428" text-anchor="middle" class="chip" fill="#6FDCA4">Postgres</text><rect x="497" y="404" width="86" height="36" rx="8" fill="none" stroke="#6FDCA4" stroke-width="2"/><text x="540.0" y="428" text-anchor="middle" class="chip" fill="#6FDCA4">Docker</text>
+<text x="72" y="566" class="name">Azizul Abedin Azmi</text>
+<circle cx="292" cy="559" r="3" fill="#4C7A6B"/>
+<rect x="308" y="539" width="352" height="38" rx="19" fill="#fff"/>
+<text x="332" y="564" font-size="17" font-weight="700" fill="#1A7A4A">✓</text>
+<text x="352" y="564" font-size="16" font-weight="700" fill="#051F21">FlyRank verified</text>
+<line x1="490" y1="549" x2="490" y2="567" stroke="#E4EAED"/>
+<text x="500" y="563" fill="#6E7F84" style="font-family:Consolas,Menlo,monospace;font-size:13px">FR-D1-A84A9-AB526</text>
+
+<!-- terminal -->
+<rect x="706" y="64" width="504" height="324" rx="16" fill="#020E0F" fill-opacity=".78" stroke="#6FDCA4" stroke-opacity=".22"/>
+<circle cx="732" cy="90" r="6" fill="#2B4A44"/><circle cx="752" cy="90" r="6" fill="#2B4A44"/><circle cx="772" cy="90" r="6" fill="#2B4A44"/>
+<text x="1188" y="95" text-anchor="end" class="mono mut" font-size="13">task-api</text>
+<text x="730" y="150" class="mono t0"><tspan class="prompt">$ </tspan><tspan class="cmd">docker compose up</tspan></text><text x="730" y="181" class="mono t1"><tspan class="ok">✓ </tspan><tspan class="p">db     </tspan><tspan class="ok">postgres:17 (healthy)</tspan></text><text x="730" y="212" class="mono t2"><tspan class="ok">✓ </tspan><tspan class="p">redis  </tspan><tspan class="ok">redis:7 (healthy)</tspan></text><text x="730" y="243" class="mono t3"><tspan class="ok">✓ </tspan><tspan class="p">api    </tspan><tspan class="mut">→ localhost:8000</tspan></text><text x="730" y="274" class="mono t4"><tspan class="m">POST </tspan><tspan class="p">/tasks </tspan><tspan class="mut">"Survive the restart" </tspan><tspan class="ok">→ 201</tspan></text><text x="730" y="305" class="mono t5"><tspan class="prompt">$ </tspan><tspan class="cmd">docker compose down</tspan><tspan class="mut">   # containers gone</tspan></text><text x="730" y="336" class="mono t6"><tspan class="prompt">$ </tspan><tspan class="cmd">docker compose up</tspan></text><text x="730" y="367" class="mono t7"><tspan class="m">GET </tspan><tspan class="p">/tasks/5 </tspan><tspan class="ok">→ 200  still there ✓</tspan></text>
+<g class="curpos"><rect class="blink" x="1180" y="136" width="9" height="18" fill="#6FDCA4"/></g>
+
+<!-- database -->
+<rect x="706" y="404" width="504" height="210" rx="16" fill="#020E0F" fill-opacity=".78" stroke="#6FDCA4" stroke-opacity=".22"/>
+<text x="730" y="440" class="mono"><tspan class="prompt">tasks=#</tspan><tspan class="cmd"> SELECT * FROM tasks;</tspan></text>
+<g class="stup1"><rect x="1118" y="424" width="70" height="22" rx="11" fill="#1A7A4A"/><text x="1153" y="440" text-anchor="middle" class="pill" fill="#E8F3EE">db: up</text></g>
+<g class="stdown"><rect x="1062" y="424" width="126" height="22" rx="11" fill="#3A2A2C"/><text x="1125" y="440" text-anchor="middle" class="pill" fill="#FF8A8E">db: removed</text></g>
+<g class="stup2"><rect x="1078" y="424" width="110" height="22" rx="11" fill="#1A7A4A"/><text x="1133" y="440" text-anchor="middle" class="pill" fill="#E8F3EE">db: up again</text></g>
+<g class="dim">
+ <text x="730" y="468" class="mono th" font-size="15">id</text><text x="772" y="468" class="mono th" font-size="15">title</text><text x="1000" y="468" class="mono th" font-size="15">done</text>
+ <line x1="730" y1="476" x2="1060" y2="476" stroke="#6FDCA4" stroke-opacity=".22"/>
+</g>
+<rect class="glow" x="722" y="555" width="350" height="26" rx="6" fill="#6FDCA4" opacity="0"/>
+<g class=""><text x="730" y="497" class="mono v">2</text><text x="772" y="497" class="mono p">Build a CRUD API</text><text x="1000" y="497" class="mono v">f</text></g><g class=""><text x="730" y="523" class="mono v">3</text><text x="772" y="523" class="mono p">Push to GitHub</text><text x="1000" y="523" class="mono v">f</text></g><g class=""><text x="730" y="549" class="mono v">4</text><text x="772" y="549" class="mono p">Buy milk</text><text x="1000" y="549" class="mono v">f</text></g><g class="row5"><text x="730" y="575" class="mono v">5</text><text x="772" y="575" class="mono p">Survive the restart</text><text x="1000" y="575" class="mono v">f</text></g>
+<text x="730" y="600" class="mono mut" font-size="14">postgres:17 · rows live on the volume "taskdata"</text>
+</svg>
