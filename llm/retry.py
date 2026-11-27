@@ -41,6 +41,10 @@ def classify(e: Exception) -> tuple[str, int | None, bool, str | None]:
         retry_after = e.response.headers.get("retry-after") if e.response is not None else None
         if s == 429:
             return "rate_limited", s, True, retry_after
+        if s >= 500 and "repeat limit" in str(getattr(e, "message", "")).lower():
+            # Ollama's "prediction aborted, token repeat limit reached": the model looped on THIS input. A 500, but
+            # not a temporary one: the same input fails the same way, so retrying only burns calls.
+            return "degenerate_output", s, False, None
         if s >= 500 or s == 408:
             return "server_error", s, True, retry_after
         if s in (401, 403):

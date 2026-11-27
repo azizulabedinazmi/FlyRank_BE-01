@@ -18,11 +18,12 @@ GOOD = {"title": "Pay council tax", "category": "finance", "priority": "high", "
 _REQ = httpx.Request("POST", "http://provider.test/v1/chat/completions")
 
 
-def status_error(code: int, headers: dict | None = None) -> openai.APIStatusError:
+def status_error(code: int, headers: dict | None = None, message: str | None = None) -> openai.APIStatusError:
     cls = {400: openai.BadRequestError, 401: openai.AuthenticationError, 403: openai.PermissionDeniedError,
            404: openai.NotFoundError, 429: openai.RateLimitError}.get(code, openai.InternalServerError)
-    resp = httpx.Response(code, headers=headers or {}, request=_REQ, json={"error": {"message": f"HTTP {code}"}})
-    return cls(message=f"HTTP {code}", response=resp, body=None)
+    message = message or f"HTTP {code}"
+    resp = httpx.Response(code, headers=headers or {}, request=_REQ, json={"error": {"message": message}})
+    return cls(message=message, response=resp, body=None)
 
 
 class FakeProvider:
@@ -232,3 +233,11 @@ def test_short_timeout_still_gets_its_retries(monkeypatch):
     p = FakeProvider(*[openai.APITimeoutError(request=_REQ)] * 3)
     err, waits = run(p)
     assert err.status == 504 and len(p.calls) == 3 and "3 attempt" in err.message
+
+
+def test_degenerate_output_500_is_not_retried():
+    """Found live: Ollama answers a looping generation with HTTP 500 'token repeat limit reached'. Same input, same
+    failure, so it is not retried, and the caller gets a 422 about the note, not a 502 about the server."""
+    p = FakeProvider(status_error(500, message="prediction aborted, token repeat limit reached"))
+    err, waits = run(p, "x " * 500)
+    assert err.status == 422 and len(p.calls) == 1 and waits == []

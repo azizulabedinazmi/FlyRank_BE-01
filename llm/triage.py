@@ -53,6 +53,8 @@ PROVIDER_ERRORS = {
     "auth": (502, "The model provider rejected this server's credentials. An operator needs to fix the key."),
     "not_found": (502, "The model provider doesn't know the configured model. An operator needs to fix LLM_MODEL."),
     "bad_request": (502, "The model provider rejected the request."),
+    "degenerate_output": (422, "The model couldn't produce an answer for this note (its output looped). "
+                               "Try rewording it."),
 }
 
 
