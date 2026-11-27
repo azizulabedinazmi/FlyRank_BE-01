@@ -34,6 +34,7 @@ class FakeProvider:
 
     def complete(self, messages, temperature, response_format=None):
         self.calls.append(messages)
+        self.formats = getattr(self, "formats", []) + [response_format]
         item = self.script.pop(0)
         if isinstance(item, Exception):
             raise item
@@ -46,6 +47,9 @@ def env(monkeypatch, tmp_path):
     monkeypatch.setenv("LLM_ENABLED", "true")
     monkeypatch.setenv("LLM_TIMEOUT_S", "30")
     monkeypatch.setattr(triage, "LOGS", tmp_path)
+    monkeypatch.setenv("LLM_CACHE", "0")  # most tests count real calls; the cache tests switch it on
+    monkeypatch.delenv("LLM_STRUCTURED", raising=False)
+    triage._CACHE.clear()
     return tmp_path
 
 
@@ -191,3 +195,32 @@ def test_route_maps_failures_to_clean_json(monkeypatch):
     monkeypatch.setattr(triage, "make_provider", lambda: FakeProvider("nope", "still nope"))
     r = TestClient(main.app).post("/tasks/triage", json={"text": "pay rent"})
     assert r.status_code == 422 and set(r.json()) == {"error"}
+
+
+# ---------------------------------------------------------------- extras: cache, structured output
+def test_cache_serves_repeats_without_a_call_and_keys_on_prompt_version(monkeypatch, env):
+    monkeypatch.setenv("LLM_CACHE", "1")
+    p = FakeProvider(json.dumps(GOOD))
+    first, _ = run(p, "Pay council tax")
+    second, _ = run(p, "  pay   COUNCIL tax ")  # same note after normalizing whitespace and case
+    assert (first.source, second.source, len(p.calls)) == ("model", "cache", 1)
+    assert triage.cache_key("triage-v1", "m", "x") != triage.cache_key("triage-v2", "m", "x")
+    assert triage.cache_key("triage-v1", "m", "x") != triage.cache_key("triage-v1", "other-model", "x")
+    assert log_lines(env)[-1]["outcome"] == "cache_hit"
+
+
+def test_bad_answers_are_never_cached(monkeypatch):
+    monkeypatch.setenv("LLM_CACHE", "1")
+    run(FakeProvider("nope", "nope"), "pay rent")
+    assert triage._CACHE == {}
+
+
+def test_structured_output_sends_the_schema_only_when_asked(monkeypatch):
+    p = FakeProvider(json.dumps(GOOD))
+    run(p)
+    assert p.formats == [None]
+    monkeypatch.setenv("LLM_STRUCTURED", "1")
+    p = FakeProvider(json.dumps(GOOD))
+    run(p)
+    fmt = p.formats[0]
+    assert fmt["type"] == "json_schema" and set(fmt["json_schema"]["schema"]["properties"]) == set(GOOD)

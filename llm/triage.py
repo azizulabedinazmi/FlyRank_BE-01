@@ -9,10 +9,12 @@
     return clean JSON         -> or 422 + logs/quarantine.jsonl / 502 / 503 / 504; never raw model text
 Every model call writes one line to logs/llm-calls.jsonl (prompt version, model, tokens, duration, repair, outcome).
 """
+import hashlib
 import json
 import os
 import re
 import time
+from collections import OrderedDict
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,7 +23,7 @@ from llm.config import settings
 from llm.parse import BadAnswer, parse_answer
 from llm.provider import Completion, OpenAICompatible, Provider
 from llm.retry import ProviderFailure, call_with_retries
-from llm.schema import Triage
+from llm.schema import ModelTriage, Triage
 
 PROMPT_NAME = os.environ.get("LLM_PROMPT", "triage-v1")
 LOGS = Path(__file__).resolve().parent.parent / "logs"
@@ -68,6 +70,26 @@ def make_provider() -> Provider:
     return OpenAICompatible(settings())
 
 
+# Extra: a small in-memory cache. The key includes the prompt version AND the model, so changing either one
+# can never serve yesterday's answers. Only valid answers are cached.
+_CACHE: "OrderedDict[str, dict]" = OrderedDict()
+CACHE_SIZE = 256
+
+
+def cache_key(prompt_version: str, model: str, text: str) -> str:
+    normalized = re.sub(r"\s+", " ", text).strip().lower()
+    return hashlib.sha256(f"{prompt_version}|{model}|{normalized}".encode()).hexdigest()
+
+
+def structured_format() -> dict | None:
+    """Extra: ask the provider to constrain decoding to our JSON schema (LLM_STRUCTURED=1). Not every model supports
+    it; our own parse + validate still runs either way, because "supported" is not the same as "guaranteed"."""
+    if os.environ.get("LLM_STRUCTURED", "0") != "1":
+        return None
+    return {"type": "json_schema",
+            "json_schema": {"name": "triage", "strict": True, "schema": ModelTriage.model_json_schema()}}
+
+
 def fallback(text: str) -> Triage:
     """Kill switch answer: deterministic, schema-valid, honest about being a default."""
     title = re.sub(r"\s+", " ", text).strip()[:80] or "Untitled task"
@@ -85,14 +107,25 @@ def run(text: str, provider: Provider | None = None, sleep=time.sleep) -> Triage
 
     prompt = prompts.load(PROMPT_NAME)
     provider = provider or make_provider()
+    use_cache = os.environ.get("LLM_CACHE", "1") == "1"
+    key = cache_key(prompt.version, provider.model, text)
+    if use_cache and key in _CACHE:
+        _CACHE.move_to_end(key)
+        append_jsonl("llm-calls.jsonl", {"ts": now(), "prompt_version": prompt.version, "model": provider.model,
+                                         "outcome": "cache_hit", "model_calls": 0})
+        return Triage(**_CACHE[key], source="cache")
     messages = prompt.messages(text)
     attempts = []
     for purpose in ("answer", "repair"):  # the first answer, then exactly one repair
         out, record = _call(provider, prompt, messages, purpose, s.timeout_s, sleep)
         try:
-            result = Triage(**parse_answer(out.text).model_dump(), source="model")
+            answer = parse_answer(out.text).model_dump()
             append_jsonl("llm-calls.jsonl", {**record, "outcome": "ok"})
-            return result
+            if use_cache:
+                _CACHE[key] = answer
+                while len(_CACHE) > CACHE_SIZE:
+                    _CACHE.popitem(last=False)
+            return Triage(**answer, source="model")
         except BadAnswer as e:
             append_jsonl("llm-calls.jsonl", {**record, "outcome": f"bad_answer: {', '.join(e.fields) or e.reason}"})
             attempts.append({"raw": out.text[:4000], "error": e.reason, "fields": e.fields})
@@ -125,7 +158,7 @@ def _call(provider: Provider, prompt, messages: list[dict], purpose: str, timeou
             holder["record"] = record
 
     def once() -> Completion:
-        holder["out"] = provider.complete(messages, prompt.temperature)
+        holder["out"] = provider.complete(messages, prompt.temperature, structured_format())
         return holder["out"]
 
     try:
