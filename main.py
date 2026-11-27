@@ -7,6 +7,8 @@ from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel, Field, StrictBool, StrictStr
 
 from cache import redis_status
+from llm import triage
+from llm.schema import Triage, TriageIn
 from storage import make_repository
 
 # ---------------------------------------------------------------------------
@@ -150,6 +152,26 @@ def delete_task(task_id: int):
     return Response(status_code=204)
 
 
+# ---------------------------------------------------------------------------
+# A17: one endpoint that asks a model for a judgement (see JOB-CARD.md). All model logic lives in llm/;
+# this route only validates the input (TriageIn -> 400 before any call) and maps failures to clean errors.
+# ---------------------------------------------------------------------------
+@app.post("/tasks/triage", tags=["ai"], summary="Turn a messy note into a clean title + category + priority",
+          response_model=Triage,
+          responses={**ERR_400,
+                     422: {"model": Error, "description": "The model's answer failed the schema twice (quarantined)"},
+                     502: {"model": Error, "description": "The model provider returned an error"},
+                     503: {"model": Error, "description": "Model unavailable"},
+                     504: {"model": Error, "description": "The model didn't answer in time"}})
+def triage_task(body: TriageIn):
+    """Send `{"text": "..."}` (1-1000 characters). Returns the six fields from JOB-CARD.md, never raw model text.
+    Nothing is saved: create the task with `POST /tasks` if you like the title."""
+    try:
+        return triage.run(body.text)
+    except triage.TriageError as e:
+        return JSONResponse(status_code=e.status, content={"error": e.message})
+
+
 # FastAPI's docs list a 422 response on every route, but our handler above returns 400 instead.
 # Remove the 422 entries so Swagger UI shows only what the API really sends.
 def custom_openapi():
@@ -157,7 +179,9 @@ def custom_openapi():
         schema = FastAPI.openapi(app)
         for path in schema["paths"].values():
             for operation in path.values():
-                operation.get("responses", {}).pop("422", None)
+                responses = operation.get("responses", {})
+                if responses.get("422", {}).get("description") == "Validation Error":  # FastAPI's, never sent
+                    responses.pop("422")
         app.openapi_schema = schema
     return app.openapi_schema
 

@@ -47,6 +47,17 @@
   </ol>
 </details>
 
+## 🤖 A17: `POST /tasks/triage` (LLM) <a name="a17"></a>
+
+Turns a messy to-do note into a clean title + category + priority. Contract: [`JOB-CARD.md`](JOB-CARD.md).
+
+```bash
+# valid: 200 + the six fields from the job card
+curl -i -X POST http://localhost:8000/tasks/triage -H "Content-Type: application/json" -d '{"text":"ring mum re sunday lunch + pick up her meds!!"}'
+# broken on purpose: 400 naming the field, and no model call is made
+curl -i -X POST http://localhost:8000/tasks/triage -H "Content-Type: application/json" -d '{"txt":"wrong field name"}'
+```
+
 ## 📋 About The Project <a name="about-the-project"></a>
 
 This API manages a to-do list: you can create tasks, read them, update them and delete them. Those are the four
