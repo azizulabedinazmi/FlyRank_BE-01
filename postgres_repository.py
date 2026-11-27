@@ -36,7 +36,7 @@ class PostgresTaskRepository:
         # A small pool: connections are reused across requests instead of reconnecting every time.
         # open=False so importing main.py never touches the network; init() opens it.
         self.pool = ConnectionPool(database_url, min_size=1, max_size=5, open=False,
-                                   kwargs={"row_factory": dict_row})
+                                   kwargs={"row_factory": dict_row, "connect_timeout": 10})  # fail fast, never hang
 
     def init(self) -> None:
         """Create the table if it's missing (db/schema.sql), then seed it only if it's empty."""
