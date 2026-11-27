@@ -11,3 +11,6 @@ __pycache__/
 tasks.db
 tasks.db-journal
 *.db
+
+# A17: LLM call log and quarantined model answers (may contain test inputs)
+logs/
