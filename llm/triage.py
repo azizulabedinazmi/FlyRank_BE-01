@@ -162,7 +162,10 @@ def _call(provider: Provider, prompt, messages: list[dict], purpose: str, timeou
         return holder["out"]
 
     try:
-        out = call_with_retries(once, on_attempt=attempt_log, sleep=sleep, deadline_s=timeout_s * 2)
+        # The overall budget for all attempts is its own setting: tying it to the per-call timeout would silently
+        # switch retries off whenever the timeout is short.
+        deadline = float(os.environ.get("LLM_DEADLINE_S", "60"))
+        out = call_with_retries(once, on_attempt=attempt_log, sleep=sleep, deadline_s=deadline)
         return out, holder["record"]
     except ProviderFailure as f:
         status, message = PROVIDER_ERRORS.get(f.kind, (502, "The model provider failed."))

@@ -224,3 +224,11 @@ def test_structured_output_sends_the_schema_only_when_asked(monkeypatch):
     run(p)
     fmt = p.formats[0]
     assert fmt["type"] == "json_schema" and set(fmt["json_schema"]["schema"]["properties"]) == set(GOOD)
+
+
+def test_short_timeout_still_gets_its_retries(monkeypatch):
+    """Regression: the retry deadline used to be 2 x timeout, so a 0.5 s timeout allowed no retry at all."""
+    monkeypatch.setenv("LLM_TIMEOUT_S", "0.5")
+    p = FakeProvider(*[openai.APITimeoutError(request=_REQ)] * 3)
+    err, waits = run(p)
+    assert err.status == 504 and len(p.calls) == 3 and "3 attempt" in err.message

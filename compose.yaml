@@ -16,6 +16,7 @@ services:
       LLM_STUB: ${LLM_STUB:-0}
       LLM_ENABLED: ${LLM_ENABLED:-true}
       LLM_TIMEOUT_S: ${LLM_TIMEOUT_S:-30}
+      LLM_DEADLINE_S: ${LLM_DEADLINE_S:-60}
     extra_hosts: ["host.docker.internal:host-gateway"]  # makes host.docker.internal work on Linux too
     volumes:
       - ./logs:/app/logs  # the LLM cost log and quarantine survive the container

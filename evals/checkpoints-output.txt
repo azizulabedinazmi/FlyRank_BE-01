@@ -1,0 +1,34 @@
+
+### Stage 3: prompt demands a category that is not in the enum -> repair once -> 422 + quarantine
+settings: {'LLM_PROMPT': 'triage-broken'}
+HTTP 422 in 3.7s: {"error":"The model's answer failed the schema twice (invalid fields: category). It was quarantined; nothing was returned."}
+model calls made: 2
+  llm-calls.jsonl: {"ts": "2026-11-27T07:06:30.762Z", "prompt_version": "triage-broken", "model": "llama3.2:3b", "purpose": "answer", "repair": false, "attempt": 1, "status": 200, "duration_ms": 3000, "input_tokens": 751, "output_tokens": 55, "outcome": "bad_answer: category"}
+  llm-calls.jsonl: {"ts": "2026-11-27T07:06:31.349Z", "prompt_version": "triage-broken", "model": "llama3.2:3b", "purpose": "repair", "repair": true, "attempt": 1, "status": 200, "duration_ms": 594, "input_tokens": 880, "output_tokens": 55, "outcome": "bad_answer: category"}
+  quarantine.jsonl: {"ts": "2026-11-27T07:06:31.350Z", "prompt_version": "triage-broken", "model": "llama3.2:3b", "input": "electricity bill overdue, pay it today pls", "attempts": [{"raw": "{\n  \"title\": \"Pay electricity bill today\",\n  \"category\": \"chores\",\n  \"priority\": \"high\",\n  \"confidence\": 0.95,\n  \"reason\": \"A bill with a deadline and a request to pay it urgently.\"\n}", "error": "category:...
+
+### Stage 4: kill switch -> fallback, zero model calls
+settings: {'LLM_ENABLED': 'false'}
+HTTP 200 in 0.0s: {"title":"electricity bill overdue, pay it today pls","category":"other","priority":"normal","confidence":0.0,"reason":"AI triage is switched off (LLM_ENABLED=false); this is a safe default.","source":"fallback"}
+model calls made: 0
+  llm-calls.jsonl: {"ts": "2026-11-27T07:06:34.972Z", "outcome": "disabled", "model_calls": 0}
+
+### Stage 4: wrong API key -> fails fast, a 401 is never retried
+settings: {'LLM_BASE_URL': 'https://openrouter.ai/api/v1', 'LLM_API_KEY': 'sk-or-v1-this-is-not-a-real-key', 'LLM_MODEL': 'openrouter/free'}
+HTTP 502 in 0.2s: {"error":"The model provider rejected this server's credentials. An operator needs to fix the key."}
+model calls made: 1
+  llm-calls.jsonl: {"ts": "2026-11-27T07:06:38.789Z", "prompt_version": "triage-v1", "model": "openrouter/free", "purpose": "answer", "repair": false, "attempt": 1, "status": 401, "duration_ms": 125, "input_tokens": null, "output_tokens": null, "outcome": "error: auth"}
+
+### Stage 4: model slower than the timeout -> retried with backoff -> 504
+settings: {'LLM_TIMEOUT_S': '0.5'}
+HTTP 504 in 6.7s: {"error":"The model didn't answer within 0.5 s (3 attempt(s)). Try again later."}
+model calls made: 3
+  llm-calls.jsonl: {"ts": "2026-11-27T07:06:43.529Z", "prompt_version": "triage-v1", "model": "llama3.2:3b", "purpose": "answer", "repair": false, "attempt": 1, "status": null, "duration_ms": 1078, "input_tokens": null, "output_tokens": null, "outcome": "error: timeout"}
+  llm-calls.jsonl: {"ts": "2026-11-27T07:06:45.914Z", "prompt_version": "triage-v1", "model": "llama3.2:3b", "purpose": "answer", "repair": false, "attempt": 2, "status": null, "duration_ms": 1032, "input_tokens": null, "output_tokens": null, "outcome": "error: timeout"}
+  llm-calls.jsonl: {"ts": "2026-11-27T07:06:49.015Z", "prompt_version": "triage-v1", "model": "llama3.2:3b", "purpose": "answer", "repair": false, "attempt": 3, "status": null, "duration_ms": 1047, "input_tokens": null, "output_tokens": null, "outcome": "error: timeout"}
+
+### Happy path again (real key/model, cache off)
+settings: {}
+HTTP 200 in 3.0s: {"title":"Pay electricity bill today","category":"finance","priority":"high","confidence":0.95,"reason":"A bill with a deadline and a request to pay it urgently.","source":"model"}
+model calls made: 1
+  llm-calls.jsonl: {"ts": "2026-11-27T07:06:55.537Z", "prompt_version": "triage-v1", "model": "llama3.2:3b", "purpose": "answer", "repair": false, "attempt": 1, "status": 200, "duration_ms": 2860, "input_tokens": 739, "output_tokens": 54, "outcome": "ok"}
