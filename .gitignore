@@ -14,3 +14,4 @@ tasks.db-journal
 
 # A17: LLM call log and quarantined model answers (may contain test inputs)
 logs/
+ai-version-llm/_app-*.log
