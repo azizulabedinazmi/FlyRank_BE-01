@@ -23,7 +23,9 @@ class Settings:
 
 def settings() -> Settings:
     return Settings(
-        base_url=os.environ.get("LLM_BASE_URL", "http://localhost:11434/v1"),
+        # 127.0.0.1, not "localhost": on Windows "localhost" tries IPv6 first and Ollama doesn't answer there, which
+        # silently added ~2.2 s to every call (found when the AI rematch was 5x faster than mine).
+        base_url=os.environ.get("LLM_BASE_URL", "http://127.0.0.1:11434/v1"),
         api_key=os.environ.get("LLM_API_KEY", "ollama"),
         model=os.environ.get("LLM_MODEL", "llama3.2:3b"),
         stub=_flag("LLM_STUB", "0"),
